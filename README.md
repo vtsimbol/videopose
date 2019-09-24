@@ -1,8 +1,16 @@
+Веса здесь:
+https://drive.google.com/open?id=1dgIwtURHzNqhQhviZh-6O6y_kiVNlgfu
+Разожить:
+joints_detectors/hrnet/models/pytorch/pose_coco/cpn-pt-243.bin
+joints_detectors/hrnet/models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth
+joints_detectors/hrnet/lib/detector/yolo/yolov3.weights
 
+make делать не надо
+Прокинуть путь до корня этой репы и импортнуть класс hrnet_pose
 
-
-
-<p align="center"><img src="outputs/op_girl.gif" width="70%" alt="" /></p>
+Зависимости: pytorch 1.2 cuda 9.2 или 10
+pip3 install torch torchvision
+Также потребует pandas, scipy, tqdm, yacs
 
 
 ## envrionment configture
