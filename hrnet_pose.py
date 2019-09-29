@@ -81,7 +81,8 @@ if __name__ == "__main__":
     while True:
         ret, img = cap.read()
         if ret:
-            keypoints = hrnet.predict(img)
+            bboxs, scores = hrnet.predict_bbox(img)
+            keypoints = hrnet.predict_kpts(img, bboxs, scores)
             if keypoints is not None:
                 img = hrnet.visualisation(img, keypoints)
             cv2.putText(img, "FPS: %f" % (1.0 / (time.time() - fps_time)), (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
