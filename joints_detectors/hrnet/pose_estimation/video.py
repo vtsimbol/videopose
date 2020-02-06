@@ -165,6 +165,14 @@ def getTwoModel():
     return bbox_model, pose_model
 
 
+def loadPoseModel():
+    return model_load(cfg)
+
+
+def loadBboxModel():
+    return yolo_model()
+
+
 def getKptsFromImage(human_model, pose_model, image, smooth=None):
 
     bboxs, scores = yolo_det(image, human_model)
