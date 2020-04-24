@@ -19,7 +19,7 @@ _C = CN()
 _C.OUTPUT_DIR = ''
 _C.LOG_DIR = ''
 _C.DATA_DIR = ''
-_C.GPUS = (0,1)
+_C.GPUS = (0,)
 _C.WORKERS = 4
 _C.PRINT_FREQ = 20
 _C.AUTO_RESUME = False
@@ -53,10 +53,10 @@ _C.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
 
 # DATASET related params
 _C.DATASET = CN()
-_C.DATASET.ROOT = ''
-_C.DATASET.DATASET = 'mpii'
-_C.DATASET.TRAIN_SET = 'train'
-_C.DATASET.TEST_SET = 'valid'
+_C.DATASET.ROOT = ['', '']
+_C.DATASET.DATASET = 'cocompii'
+_C.DATASET.TRAIN_SET = ['train2017', 'train']
+_C.DATASET.TEST_SET = ['val2017', 'valid']
 _C.DATASET.DATA_FORMAT = 'jpg'
 _C.DATASET.HYBRID_JOINTS_TYPE = ''
 _C.DATASET.SELECT_DATA = False
@@ -68,6 +68,7 @@ _C.DATASET.ROT_FACTOR = 30
 _C.DATASET.PROB_HALF_BODY = 0.0
 _C.DATASET.NUM_JOINTS_HALF_BODY = 8
 _C.DATASET.COLOR_RGB = False
+_C.DATASET.GRAYSCALE = True
 
 # train
 _C.TRAIN = CN()
@@ -137,18 +138,12 @@ def update_config(cfg, args):
     if args.dataDir:
         cfg.DATA_DIR = args.dataDir
 
-    cfg.DATASET.ROOT = os.path.join(
-        cfg.DATA_DIR, cfg.DATASET.ROOT
-    )
+    cfg.DATASET.ROOT = [os.path.join(cfg.DATA_DIR, root) for root in cfg.DATASET.ROOT]
 
-    cfg.MODEL.PRETRAINED = os.path.join(
-        cfg.DATA_DIR, cfg.MODEL.PRETRAINED
-    )
+    cfg.MODEL.PRETRAINED = os.path.join(cfg.DATA_DIR, cfg.MODEL.PRETRAINED)
 
     if cfg.TEST.MODEL_FILE:
-        cfg.TEST.MODEL_FILE = os.path.join(
-            cfg.DATA_DIR, cfg.TEST.MODEL_FILE
-        )
+        cfg.TEST.MODEL_FILE = os.path.join(cfg.DATA_DIR, cfg.TEST.MODEL_FILE)
 
     cfg.freeze()
 

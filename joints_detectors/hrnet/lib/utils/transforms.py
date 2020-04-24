@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import numpy as np
 import cv2
+import torch
 
 
 def flip_back(output_flipped, matched_parts):
@@ -54,10 +55,7 @@ def transform_preds(coords, center, scale, output_size):
     return target_coords
 
 
-def get_affine_transform(
-        center, scale, rot, output_size,
-        shift=np.array([0, 0], dtype=np.float32), inv=0
-):
+def get_affine_transform(center, scale, rot, output_size, shift=np.array([0, 0], dtype=np.float32), inv=0):
     if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
         print(scale)
         scale = np.array([scale, scale])
@@ -119,3 +117,11 @@ def crop(img, center, scale, output_size, rot=0):
     )
 
     return dst_img
+
+
+class NormalizeImage(object):
+    def __call__(self, tensor):
+        mean = tensor.mean()
+        std = tensor.std()
+        tensor.sub_(mean).div_(std)
+        return tensor

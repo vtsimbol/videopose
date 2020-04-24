@@ -340,26 +340,18 @@ class COCODataset(JointsDataset):
                 n_p['score'] = kpt_score * box_score
 
             if self.soft_nms:
-                keep = soft_oks_nms(
-                    [img_kpts[i] for i in range(len(img_kpts))],
-                    oks_thre
-                )
+                keep = soft_oks_nms([img_kpts[i] for i in range(len(img_kpts))], oks_thre)
             else:
-                keep = oks_nms(
-                    [img_kpts[i] for i in range(len(img_kpts))],
-                    oks_thre
-                )
+                keep = oks_nms([img_kpts[i] for i in range(len(img_kpts))], oks_thre)
 
             if len(keep) == 0:
                 oks_nmsed_kpts.append(img_kpts)
             else:
                 oks_nmsed_kpts.append([img_kpts[_keep] for _keep in keep])
 
-        self._write_coco_keypoint_results(
-            oks_nmsed_kpts, res_file)
+        self._write_coco_keypoint_results(oks_nmsed_kpts, res_file)
         if 'test' not in self.image_set:
-            info_str = self._do_python_keypoint_eval(
-                res_file, res_folder)
+            info_str = self._do_python_keypoint_eval(res_file, res_folder)
             name_value = OrderedDict(info_str)
             return name_value, name_value['AP']
         else:

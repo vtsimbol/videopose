@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 class MPIIDataset(JointsDataset):
     def __init__(self, cfg, root, image_set, is_train, transform=None):
         super().__init__(cfg, root, image_set, is_train, transform)
+        self.image_width = cfg.MODEL.IMAGE_SIZE[0]
+        self.image_height = cfg.MODEL.IMAGE_SIZE[1]
+        self.aspect_ratio = self.image_width * 1.0 / self.image_height
 
         self.num_joints = 16
         self.flip_pairs = [[0, 5], [1, 4], [2, 3], [10, 15], [11, 14], [12, 13]]
@@ -42,11 +45,9 @@ class MPIIDataset(JointsDataset):
 
     def _get_db(self):
         # create train/val split
-        file_name = os.path.join(
-            self.root, 'annot', self.image_set+'.json'
-        )
+        file_name = os.path.join(self.root, 'annot', self.image_set+'.json')
         with open(file_name) as anno_file:
-            anno = json.load(anno_file)
+            anno = json.load(anno_file, ignore_comments=True)
 
         gt_db = []
         for a in anno:
@@ -107,9 +108,17 @@ class MPIIDataset(JointsDataset):
         SC_BIAS = 0.6
         threshold = 0.5
 
-        gt_file = os.path.join(cfg.DATASET.ROOT,
-                               'annot',
-                               'gt_{}.mat'.format(cfg.DATASET.TEST_SET))
+        dataset_root = None
+        test_set = None
+        for i in range(len(cfg.DATASET.ROOT)):
+            if 'mpii' in cfg.DATASET.ROOT[i]:
+                dataset_root = cfg.DATASET.ROOT[i]
+                test_set = cfg.DATASET.TEST_SET[i]
+                break
+        if dataset_root is None:
+            raise RuntimeError('MPII dataset root not found in config')
+
+        gt_file = os.path.join(dataset_root, 'annot', 'gt_{}.mat'.format(test_set))
         gt_dict = loadmat(gt_file)
         dataset_joints = gt_dict['dataset_joints']
         jnt_missing = gt_dict['jnt_missing']

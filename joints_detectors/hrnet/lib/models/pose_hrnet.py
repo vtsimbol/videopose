@@ -279,8 +279,12 @@ class PoseHighResolutionNet(nn.Module):
         super(PoseHighResolutionNet, self).__init__()
 
         # stem net
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
-                               bias=False)
+        if cfg.DATASET.GRAYSCALE:
+            self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1,
+                                   bias=False)
+        else:
+            self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
+                                   bias=False)
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
@@ -330,8 +334,7 @@ class PoseHighResolutionNet(nn.Module):
 
         self.pretrained_layers = cfg['MODEL']['EXTRA']['PRETRAINED_LAYERS']
 
-    def _make_transition_layer(
-            self, num_channels_pre_layer, num_channels_cur_layer):
+    def _make_transition_layer(self, num_channels_pre_layer, num_channels_cur_layer):
         num_branches_cur = len(num_channels_cur_layer)
         num_branches_pre = len(num_channels_pre_layer)
 
@@ -483,8 +486,7 @@ class PoseHighResolutionNet(nn.Module):
 
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
-                if name.split('.')[0] in self.pretrained_layers \
-                   or self.pretrained_layers[0] is '*':
+                if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
                     need_init_state_dict[name] = m
             self.load_state_dict(need_init_state_dict, strict=False)
         elif pretrained:
