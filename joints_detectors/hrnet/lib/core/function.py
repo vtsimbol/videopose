@@ -224,7 +224,6 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
 
     if isinstance(perf_indicator, dict):
         if 'coco' in perf_indicator.keys():
-            print(perf_indicator['coco'])
             return perf_indicator['coco']
         elif 'mpii' in perf_indicator.keys():
             return perf_indicator['mpii']
