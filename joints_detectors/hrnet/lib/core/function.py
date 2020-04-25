@@ -12,14 +12,14 @@ import time
 import logging
 import os
 
+import cv2
 import numpy as np
 import torch
 
 from core.evaluate import accuracy
 from core.inference import get_final_preds
-from utils.transforms import flip_back
+from utils.transforms import transform_preds, flip_back
 from utils.vis import save_debug_images
-
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
     model.eval()
 
     num_samples = len(val_dataset)
-    all_targets = np.zeros((num_samples, 17, 3), dtype=np.float32)
+    all_joints_gt = np.zeros((num_samples, 17, 3), dtype=np.float32)
     all_preds = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3), dtype=np.float32)
     all_boxes = np.zeros((num_samples, 6))
     image_path = []
@@ -171,8 +171,8 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
             all_boxes[idx:idx + num_images, 5] = score
             image_path.extend(meta['image'])
 
-            source_target = meta['target_joints'].cpu().numpy()
-            all_targets[idx:idx + num_images] = source_target
+            # for evaluate mpii and coco datasets
+            all_joints_gt[idx:idx + num_images] = meta['joints_gt'].cpu().numpy()
 
             idx += num_images
 
@@ -188,7 +188,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
                 save_debug_images(config, input, meta, target, pred * 4, output, prefix)
 
         name_values, perf_indicator = val_dataset.evaluate(config, all_preds, output_dir, all_boxes, image_path,
-                                                           all_targets, filenames, imgnums)
+                                                           all_joints_gt, filenames, imgnums)
 
         model_name = config.MODEL.NAME
         if isinstance(name_values, dict):

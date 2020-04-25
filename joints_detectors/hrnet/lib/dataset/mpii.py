@@ -152,8 +152,7 @@ class MPIIDataset(JointsDataset):
         scaled_uv_err = np.divide(uv_err, scale)
         scaled_uv_err = np.multiply(scaled_uv_err, jnt_visible)
         jnt_count = np.sum(jnt_visible, axis=1)
-        less_than_threshold = np.multiply((scaled_uv_err <= threshold),
-                                          jnt_visible)
+        less_than_threshold = np.multiply((scaled_uv_err <= threshold), jnt_visible)
         PCKh = np.divide(100.*np.sum(less_than_threshold, axis=1), jnt_count)
 
         # save

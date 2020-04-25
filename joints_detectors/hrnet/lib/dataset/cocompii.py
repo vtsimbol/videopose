@@ -8,6 +8,8 @@ import torch.utils.data as data
 from dataset.JointsDataset import JointsDataset
 from dataset.coco import COCODataset
 from dataset.mpii import MPIIDataset
+from utils.transforms import get_affine_transform
+from utils.transforms import affine_transform
 
 
 class CocoMpii(data.Dataset):
@@ -75,8 +77,7 @@ class CocoMpii(data.Dataset):
         new_meta = meta.copy()
         new_meta['joints'] = np.zeros((self.num_joints, 3), dtype=np.float32)
         new_meta['joints_vis'] = np.zeros((self.num_joints, 3), dtype=np.float32)
-        new_meta['target_joints'] = np.zeros((17, 3), dtype=np.float32)
-        new_meta['target_joints_vis'] = np.zeros((17, 3), dtype=np.float32)
+        new_meta['joints_gt'] = np.zeros((17, 3), dtype=np.float32)
 
         new_meta['center'] = np.array(meta['center'], dtype=np.float32)
         new_meta['scale'] = np.array(meta['scale'], dtype=np.float32)
@@ -90,6 +91,7 @@ class CocoMpii(data.Dataset):
                 new_target_weight[i_new] = target_weight[i_source]
                 new_meta['joints'][i_new] = meta['joints'][i_source]
                 new_meta['joints_vis'][i_new] = meta['joints_vis'][i_source]
+
         elif key == 'mpii':
             for i_new, i_source, _ in self.mpii_ids:
                 new_target[i_new] = target[i_source]
@@ -97,14 +99,13 @@ class CocoMpii(data.Dataset):
                 new_meta['joints'][i_new] = meta['joints'][i_source]
                 new_meta['joints_vis'][i_new] = meta['joints_vis'][i_source]
 
-        new_meta['target_joints'][:self._datasets[key].num_joints] = meta['joints'][:self._datasets[key].num_joints]
-        new_meta['target_joints_vis'][:self._datasets[key].num_joints] = meta['joints_vis'][:self._datasets[key].num_joints]
+        new_meta['joints_gt'][:self._datasets[key].num_joints] = meta['joints_gt'][:self._datasets[key].num_joints]
         return input, new_target, new_target_weight, new_meta
 
     def __len__(self):
         return sum([self._lens[k] for k in self._lens.keys()])
 
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, target, *args, **kwargs):
+    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, all_joints_gt, *args, **kwargs):
         offset = 0
         name_values = {}
         perf_indicator = {}
@@ -113,18 +114,46 @@ class CocoMpii(data.Dataset):
                 print('MPII evaluate')
                 new_preds = np.zeros((self._lens[k], self._datasets[k].num_joints, 3), dtype=preds.dtype)
                 for i in range(self._lens[k]):
-                    new_preds[i, :, :] = target[i + offset, :self._datasets[k].num_joints, :]
+                    new_preds[i, :, :] = all_joints_gt[i + offset, :self._datasets[k].num_joints, :]
                     for i_new, i_source, _ in self.mpii_ids:
                         new_preds[i, i_source, :] = preds[i + offset, i_new, :]
+
+                    # # debug
+                    # img = cv2.imread(img_path[i + offset], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                    # for pts_idx, pts in enumerate(all_joints_gt[i + offset]):
+                    #     x, y = int(pts[0]), int(pts[1])
+                    #     img = cv2.circle(img, (x, y), 2, (0, 255, 0), 2)
+                    #     img = cv2.putText(img, f'{pts_idx}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 1)
+                    # for pts_idx, pts in enumerate(new_preds[i]):
+                    #     x, y = int(pts[0]), int(pts[1])
+                    #     img = cv2.circle(img, (x, y), 2, (0, 0, 255), 2)
+                    #     img = cv2.putText(img, f'{pts_idx}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0,  255), 1)
+                    # cv2.imshow('debug', img)
+                    # cv2.waitKey(0)
+
                 name_values[k], perf_indicator[k] = self._datasets[k].evaluate(cfg, new_preds, output_dir)
                 offset += self._lens[k]
             elif k == 'coco':
                 print('COCO evaluate')
                 new_preds = np.zeros((self._lens[k], self._datasets[k].num_joints, 3), dtype=preds.dtype)
                 for i in range(self._lens[k]):
-                    new_preds[i, :, :] = target[i + offset, :self._datasets[k].num_joints, :]
+                    new_preds[i, :, :] = all_joints_gt[i + offset, :self._datasets[k].num_joints, :]
                     for i_new, i_source, _ in self.coco_ids:
                         new_preds[i, i_source, :] = preds[i + offset, i_new, :]
+
+                    # # debug
+                    # img = cv2.imread(img_path[i + offset], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                    # for pts_idx, pts in enumerate(all_joints_gt[i + offset]):
+                    #     x, y = int(pts[0]), int(pts[1])
+                    #     img = cv2.circle(img, (x, y), 2, (0, 255, 0), 2)
+                    #     img = cv2.putText(img, f'{pts_idx}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 1)
+                    # for pts_idx, pts in enumerate(new_preds[i]):
+                    #     x, y = int(pts[0]), int(pts[1])
+                    #     img = cv2.circle(img, (x, y), 2, (0, 0, 255), 2)
+                    #     img = cv2.putText(img, f'{pts_idx}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0,  255), 1)
+                    # cv2.imshow('debug', img)
+                    # cv2.waitKey(0)
+
                 name_values[k], perf_indicator[k] = self._datasets[k].evaluate(cfg, new_preds, output_dir,
                                                                                all_boxes[offset:offset + self._lens[k], :],
                                                                                img_path[offset:offset + self._lens[k]])

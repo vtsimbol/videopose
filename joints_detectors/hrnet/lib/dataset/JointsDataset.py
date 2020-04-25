@@ -134,11 +134,12 @@ class JointsDataset(Dataset):
             logger.error('=> fail to read {}'.format(image_file))
             raise ValueError('Fail to read {}'.format(image_file))
 
-        joints = db_rec['joints_3d']
-        joints_vis = db_rec['joints_3d_vis']
+        joints = db_rec['joints_3d'].copy()
+        joints_gt = db_rec['joints_3d'].copy()
+        joints_vis = db_rec['joints_3d_vis'].copy()
 
-        c = db_rec['center']
-        s = db_rec['scale']
+        c = db_rec['center'].copy()
+        s = db_rec['scale'].copy()
         score = db_rec['score'] if 'score' in db_rec else 1
         r = 0
 
@@ -187,7 +188,8 @@ class JointsDataset(Dataset):
             'center': c,
             'scale': s,
             'rotation': r,
-            'score': score
+            'score': score,
+            'joints_gt': joints_gt
         }
 
         return input, target, target_weight, meta

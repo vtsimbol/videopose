@@ -29,7 +29,9 @@ def get_max_preds(batch_heatmaps):
     width = batch_heatmaps.shape[3]
     heatmaps_reshaped = batch_heatmaps.reshape((batch_size, num_joints, -1))
     idx = np.argmax(heatmaps_reshaped, 2)
-    maxvals = np.amax(heatmaps_reshaped, 2)
+    # maxvals = np.amax(heatmaps_reshaped, 2)
+    # loss nan bugs
+    maxvals = np.amax(heatmaps_reshaped, 2) + 1e-7
 
     maxvals = maxvals.reshape((batch_size, num_joints, 1))
     idx = idx.reshape((batch_size, num_joints, 1))
@@ -72,8 +74,6 @@ def get_final_preds(config, batch_heatmaps, center, scale):
 
     # Transform back
     for i in range(coords.shape[0]):
-        preds[i] = transform_preds(
-            coords[i], center[i], scale[i], [heatmap_width, heatmap_height]
-        )
+        preds[i] = transform_preds(coords[i], center[i], scale[i], [heatmap_width, heatmap_height])
 
     return preds, maxvals
