@@ -31,7 +31,8 @@ def get_max_preds(batch_heatmaps):
     idx = np.argmax(heatmaps_reshaped, 2)
     # maxvals = np.amax(heatmaps_reshaped, 2)
     # loss nan bugs
-    maxvals = np.amax(heatmaps_reshaped, 2) + 1e-7
+    heatmaps_reshaped = np.nan_to_num(heatmaps_reshaped, nan=0, posinf=1e+5, neginf=1e+5)
+    maxvals = np.amax(heatmaps_reshaped, 2)
 
     maxvals = maxvals.reshape((batch_size, num_joints, 1))
     idx = idx.reshape((batch_size, num_joints, 1))

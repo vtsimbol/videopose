@@ -174,15 +174,15 @@ class MPIIDataset(JointsDataset):
         jnt_ratio = jnt_count / np.sum(jnt_count).astype(np.float64)
 
         name_value = [
-            ('Head', PCKh[head]),
-            ('Shoulder', 0.5 * (PCKh[lsho] + PCKh[rsho])),
-            ('Elbow', 0.5 * (PCKh[lelb] + PCKh[relb])),
-            ('Wrist', 0.5 * (PCKh[lwri] + PCKh[rwri])),
-            ('Hip', 0.5 * (PCKh[lhip] + PCKh[rhip])),
-            ('Knee', 0.5 * (PCKh[lkne] + PCKh[rkne])),
-            ('Ankle', 0.5 * (PCKh[lank] + PCKh[rank])),
-            ('Mean', np.sum(PCKh * jnt_ratio)),
-            ('Mean@0.1', np.sum(pckAll[11, :] * jnt_ratio))
+            ('Head', PCKh[head] / 100.0),
+            ('Shoulder', 0.5 * (PCKh[lsho] + PCKh[rsho]) / 100.0),
+            ('Elbow', 0.5 * (PCKh[lelb] + PCKh[relb]) / 100.0),
+            ('Wrist', 0.5 * (PCKh[lwri] + PCKh[rwri]) / 100.0),
+            ('Hip', 0.5 * (PCKh[lhip] + PCKh[rhip]) / 100.0),
+            ('Knee', 0.5 * (PCKh[lkne] + PCKh[rkne]) / 100.0),
+            ('Ankle', 0.5 * (PCKh[lank] + PCKh[rank]) / 100.0),
+            ('Mean', np.sum(PCKh * jnt_ratio) / 100.0),
+            ('Mean@0.1', np.sum(pckAll[11, :] * jnt_ratio) / 100.0)
         ]
         name_value = OrderedDict(name_value)
 
