@@ -210,14 +210,11 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
             global_steps = writer_dict['valid_global_steps']
             writer.add_scalar('valid_loss', losses.avg, global_steps)
             writer.add_scalar('valid_acc', acc.avg, global_steps)
+            # for cocompii
             if isinstance(name_values, dict):
                 for k in name_values.keys():
-                    if isinstance(name_values[k], list):
-                        for name_value in name_values[k]:
-                            writer.add_scalars('valid', dict(name_value), global_steps)
-                    else:
-                        writer.add_scalars('valid', dict(name_values[k]), global_steps)
-
+                    for sub_k in name_values[k].keys():
+                        writer.add_scalar(f'{k}_{sub_k}_valid', name_values[k][sub_k], global_steps)
             elif isinstance(name_values, list):
                 for name_value in name_values:
                     writer.add_scalars('valid', dict(name_value), global_steps)
@@ -227,6 +224,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
 
     if isinstance(perf_indicator, dict):
         if 'coco' in perf_indicator.keys():
+            print(perf_indicator['coco'])
             return perf_indicator['coco']
         elif 'mpii' in perf_indicator.keys():
             return perf_indicator['mpii']
