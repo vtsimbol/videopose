@@ -286,8 +286,7 @@ class COCODataset(JointsDataset):
             self.image_thre, num_boxes))
         return kpt_db
 
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path,
-                 *args, **kwargs):
+    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, *args, **kwargs):
         rank = cfg.RANK
 
         res_folder = os.path.join(output_dir, 'results')
@@ -297,10 +296,7 @@ class COCODataset(JointsDataset):
             except Exception:
                 logger.error('Fail to make {}'.format(res_folder))
 
-        res_file = os.path.join(
-            res_folder, 'keypoints_{}_results_{}.json'.format(
-                self.image_set, rank)
-        )
+        res_file = os.path.join(res_folder, 'keypoints_{}_results_{}.json'.format(self.image_set, rank))
 
         # person x (keypoints)
         _kpts = []

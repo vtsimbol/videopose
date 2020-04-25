@@ -75,6 +75,9 @@ class CocoMpii(data.Dataset):
         new_meta = meta.copy()
         new_meta['joints'] = np.zeros((self.num_joints, 3), dtype=np.float32)
         new_meta['joints_vis'] = np.zeros((self.num_joints, 3), dtype=np.float32)
+        new_meta['target_joints'] = np.zeros((17, 3), dtype=np.float32)
+        new_meta['target_joints_vis'] = np.zeros((17, 3), dtype=np.float32)
+
         new_meta['center'] = np.array(meta['center'], dtype=np.float32)
         new_meta['scale'] = np.array(meta['scale'], dtype=np.float32)
 
@@ -94,12 +97,14 @@ class CocoMpii(data.Dataset):
                 new_meta['joints'][i_new] = meta['joints'][i_source]
                 new_meta['joints_vis'][i_new] = meta['joints_vis'][i_source]
 
+        new_meta['target_joints'][:self._datasets[key].num_joints] = meta['joints'][:self._datasets[key].num_joints]
+        new_meta['target_joints_vis'][:self._datasets[key].num_joints] = meta['joints_vis'][:self._datasets[key].num_joints]
         return input, new_target, new_target_weight, new_meta
 
     def __len__(self):
         return sum([self._lens[k] for k in self._lens.keys()])
 
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, *args, **kwargs):
+    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, target, *args, **kwargs):
         offset = 0
         name_values = {}
         perf_indicator = {}
@@ -107,17 +112,19 @@ class CocoMpii(data.Dataset):
             if k == 'mpii':
                 print('MPII evaluate')
                 new_preds = np.zeros((self._lens[k], self._datasets[k].num_joints, 3), dtype=preds.dtype)
-                for i_person in range(self._lens[k]):
+                for i in range(self._lens[k]):
+                    new_preds[i, :, :] = target[i + offset, :self._datasets[k].num_joints, :]
                     for i_new, i_source, _ in self.mpii_ids:
-                        new_preds[i_person, i_source, :] = preds[i_person + offset, i_new, :]
+                        new_preds[i, i_source, :] = preds[i + offset, i_new, :]
                 name_values[k], perf_indicator[k] = self._datasets[k].evaluate(cfg, new_preds, output_dir)
                 offset += self._lens[k]
             elif k == 'coco':
                 print('COCO evaluate')
                 new_preds = np.zeros((self._lens[k], self._datasets[k].num_joints, 3), dtype=preds.dtype)
-                for i_person in range(self._lens[k]):
+                for i in range(self._lens[k]):
+                    new_preds[i, :, :] = target[i + offset, :self._datasets[k].num_joints, :]
                     for i_new, i_source, _ in self.coco_ids:
-                        new_preds[i_person, i_source, :] = preds[i_person + offset, i_new, :]
+                        new_preds[i, i_source, :] = preds[i + offset, i_new, :]
                 name_values[k], perf_indicator[k] = self._datasets[k].evaluate(cfg, new_preds, output_dir,
                                                                                all_boxes[offset:offset + self._lens[k], :],
                                                                                img_path[offset:offset + self._lens[k]])

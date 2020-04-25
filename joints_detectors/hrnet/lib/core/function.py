@@ -102,6 +102,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
     model.eval()
 
     num_samples = len(val_dataset)
+    all_targets = np.zeros((num_samples, 17, 3), dtype=np.float32)
     all_preds = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3), dtype=np.float32)
     all_boxes = np.zeros((num_samples, 6))
     image_path = []
@@ -170,6 +171,9 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
             all_boxes[idx:idx + num_images, 5] = score
             image_path.extend(meta['image'])
 
+            source_target = meta['target_joints'].cpu().numpy()
+            all_targets[idx:idx + num_images] = source_target
+
             idx += num_images
 
             if i % config.PRINT_FREQ == 0:
@@ -183,7 +187,8 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
                 prefix = '{}_{}'.format(os.path.join(output_dir, 'val'), i)
                 save_debug_images(config, input, meta, target, pred * 4, output, prefix)
 
-        name_values, perf_indicator = val_dataset.evaluate(config, all_preds, output_dir, all_boxes, image_path, filenames, imgnums)
+        name_values, perf_indicator = val_dataset.evaluate(config, all_preds, output_dir, all_boxes, image_path,
+                                                           all_targets, filenames, imgnums)
 
         model_name = config.MODEL.NAME
         if isinstance(name_values, dict):
@@ -205,14 +210,30 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir, tb_l
             global_steps = writer_dict['valid_global_steps']
             writer.add_scalar('valid_loss', losses.avg, global_steps)
             writer.add_scalar('valid_acc', acc.avg, global_steps)
-            if isinstance(name_values, list):
+            if isinstance(name_values, dict):
+                for k in name_values.keys():
+                    if isinstance(name_values[k], list):
+                        for name_value in name_values[k]:
+                            writer.add_scalars('valid', dict(name_value), global_steps)
+                    else:
+                        writer.add_scalars('valid', dict(name_values[k]), global_steps)
+
+            elif isinstance(name_values, list):
                 for name_value in name_values:
                     writer.add_scalars('valid', dict(name_value), global_steps)
             else:
                 writer.add_scalars('valid', dict(name_values), global_steps)
             writer_dict['valid_global_steps'] = global_steps + 1
 
-    return perf_indicator
+    if isinstance(perf_indicator, dict):
+        if 'coco' in perf_indicator.keys():
+            return perf_indicator['coco']
+        elif 'mpii' in perf_indicator.keys():
+            return perf_indicator['mpii']
+        else:
+            raise RuntimeError('Unknown dataset')
+    else:
+        return perf_indicator
 
 
 # markdown format output
