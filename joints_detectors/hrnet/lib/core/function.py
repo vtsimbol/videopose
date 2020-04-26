@@ -45,6 +45,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch, output_dir, 
         target_weight = target_weight.cuda(non_blocking=True)
 
         if isinstance(outputs, list):
+            print(f'outputs is list')
             loss = criterion(outputs[0], target, target_weight)
             for output in outputs[1:]:
                 loss += criterion(output, target, target_weight)

@@ -108,8 +108,7 @@ def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
 
             width_begin = heatmap_width * (j+1)
             width_end = heatmap_width * (j+2)
-            grid_image[height_begin:height_end, width_begin:width_end, :] = \
-                masked_image
+            grid_image[height_begin:height_end, width_begin:width_end, :] = masked_image
             # grid_image[height_begin:height_end, width_begin:width_end, :] = \
             #     colored_heatmap*0.7 + resized_image*0.3
 
@@ -118,8 +117,7 @@ def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
     cv2.imwrite(file_name, grid_image)
 
 
-def save_debug_images(config, input, meta, target, joints_pred, output,
-                      prefix):
+def save_debug_images(config, input, meta, target, joints_pred, output, prefix):
     if not config.DEBUG.DEBUG:
         return
 

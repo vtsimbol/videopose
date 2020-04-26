@@ -100,6 +100,18 @@ class CocoMpii(data.Dataset):
                 new_meta['joints_vis'][i_new] = meta['joints_vis'][i_source]
 
         new_meta['joints_gt'][:self._datasets[key].num_joints] = meta['joints_gt'][:self._datasets[key].num_joints]
+
+        # img = input.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
+        # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        # points = new_meta['joints']
+        # img = cv2.putText(img, f'{key}', (10, 10), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 1)
+        # for pts_idx, pts in enumerate(points):
+        #     x, y = int(pts[0]), int(pts[1])
+        #     img = cv2.circle(img, (x, y), 2, (0, 255, 0), 2)
+        #     img = cv2.putText(img, f'{pts_idx}', (x, y), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 1)
+        # cv2.imshow('debug', img)
+        # cv2.waitKey(0)
+
         return input, new_target, new_target_weight, new_meta
 
     def __len__(self):

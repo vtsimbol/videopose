@@ -29,10 +29,11 @@ def get_max_preds(batch_heatmaps):
     width = batch_heatmaps.shape[3]
     heatmaps_reshaped = batch_heatmaps.reshape((batch_size, num_joints, -1))
     idx = np.argmax(heatmaps_reshaped, 2)
-    # maxvals = np.amax(heatmaps_reshaped, 2)
-    # loss nan bugs
-    heatmaps_reshaped = np.nan_to_num(heatmaps_reshaped, nan=0, posinf=1e+5, neginf=1e+5)
     maxvals = np.amax(heatmaps_reshaped, 2)
+
+    # loss nan bugs
+    # heatmaps_reshaped = np.nan_to_num(heatmaps_reshaped, nan=0, posinf=1e+5, neginf=1e+5)
+    # maxvals = np.amax(heatmaps_reshaped, 2)
 
     maxvals = maxvals.reshape((batch_size, num_joints, 1))
     idx = idx.reshape((batch_size, num_joints, 1))
@@ -42,7 +43,9 @@ def get_max_preds(batch_heatmaps):
     preds[:, :, 0] = (preds[:, :, 0]) % width
     preds[:, :, 1] = np.floor((preds[:, :, 1]) / width)
 
-    pred_mask = np.tile(np.greater(maxvals, 0.0), (1, 1, 2))
+    maxvals = np.nan_to_num(maxvals, nan=0)
+    pred_mask = np.tile(np.greater(maxvals, 0.0), (1, 1, 2))    # RuntimeWarning: invalid value encountered in greater pred_mask = np.tile(np.greater(maxvals, 0.0), (1, 1, 2))
+
     pred_mask = pred_mask.astype(np.float32)
 
     preds *= pred_mask

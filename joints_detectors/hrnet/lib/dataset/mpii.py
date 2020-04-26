@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 class MPIIDataset(JointsDataset):
     def __init__(self, cfg, root, image_set, is_train, transform=None):
         super().__init__(cfg, root, image_set, is_train, transform)
+        self.cfg = cfg
         self.image_width = cfg.MODEL.IMAGE_SIZE[0]
         self.image_height = cfg.MODEL.IMAGE_SIZE[1]
         self.aspect_ratio = self.image_width * 1.0 / self.image_height
@@ -71,13 +72,14 @@ class MPIIDataset(JointsDataset):
                 joints = np.array(a['joints'])
                 joints[:, 0:2] = joints[:, 0:2] - 1
                 joints_vis = np.array(a['joints_vis'])
-                assert len(joints) == self.num_joints, \
-                    'joint num diff: {} vs {}'.format(len(joints),
-                                                      self.num_joints)
+                assert len(joints) == self.num_joints, 'joint num diff: {} vs {}'.format(len(joints), self.num_joints)
 
                 joints_3d[:, 0:2] = joints[:, 0:2]
                 joints_3d_vis[:, 0] = joints_vis[:]
                 joints_3d_vis[:, 1] = joints_vis[:]
+
+            if self.cfg.DATASET.DATASET == 'cocompii':
+                joints_3d[9, :] = (joints_3d[9, :] + joints_3d[8, :]) / 2.0
 
             image_dir = 'images.zip@' if self.data_format == 'zip' else 'images'
             gt_db.append(

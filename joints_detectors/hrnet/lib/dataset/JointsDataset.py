@@ -283,4 +283,7 @@ class JointsDataset(Dataset):
         if self.use_different_joints_weight:
             target_weight = np.multiply(target_weight, self.joints_weight)
 
+        assert np.nan not in target, print(target)
+        assert np.nan not in target_weight, print(target_weight)
+
         return target, target_weight
