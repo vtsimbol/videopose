@@ -20,7 +20,7 @@ import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 import _init_paths
 from config import cfg
@@ -104,8 +104,7 @@ def main():
         # copy pre models for philly
         copy_prev_models(args.prevModelDir, args.modelDir)
 
-    logger, final_output_dir, tb_log_dir = create_logger(
-        cfg, args.cfg, 'train')
+    logger, final_output_dir, tb_log_dir = create_logger(cfg, args.cfg, 'train')
 
     logger.info(pprint.pformat(args))
     logger.info(cfg)
@@ -115,15 +114,11 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=True
-    )
+    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
 
     # copy model file
     this_dir = os.path.dirname(__file__)
-    shutil.copy2(
-        os.path.join(this_dir, '../lib/models', cfg.MODEL.NAME + '.py'),
-        final_output_dir)
+    shutil.copy2(os.path.join(this_dir, '../lib/models', cfg.MODEL.NAME + '.py'), final_output_dir)
     # logger.info(pprint.pformat(model))
 
     writer_dict = {
@@ -132,19 +127,15 @@ def main():
         'valid_global_steps': 0,
     }
 
-    dump_input = torch.rand(
-        (1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
-    )
-    writer_dict['writer'].add_graph(model, (dump_input, ))
+    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    # writer_dict['writer'].add_graph(model, (dump_input, ))
 
     logger.info(get_model_summary(model, dump_input))
 
     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = JointsMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+    criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(
@@ -164,17 +155,32 @@ def main():
             normalize,
         ])
     )
+    valid_byndyu_dataset = dataset.coco(
+        cfg, os.path.join(cfg.DATA_DIR, 'ByndyusoftPoseEstimationDataset'), 'val', False,
+        transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+    )
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU*len(cfg.GPUS),
+        batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
         shuffle=cfg.TRAIN.SHUFFLE,
         num_workers=cfg.WORKERS,
         pin_memory=cfg.PIN_MEMORY
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU*len(cfg.GPUS),
+        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
+        shuffle=False,
+        num_workers=cfg.WORKERS,
+        pin_memory=cfg.PIN_MEMORY
+    )
+
+    valid_byndyu_loader = torch.utils.data.DataLoader(
+        valid_byndyu_dataset,
+        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
         shuffle=False,
         num_workers=cfg.WORKERS,
         pin_memory=cfg.PIN_MEMORY
@@ -213,11 +219,17 @@ def main():
         train(cfg, train_loader, model, criterion, optimizer, epoch,
               final_output_dir, tb_log_dir, writer_dict)
 
-
         # evaluate on validation set
+        logger.info('COCO or MPII validation')
         perf_indicator = validate(
             cfg, valid_loader, valid_dataset, model, criterion,
             final_output_dir, tb_log_dir, writer_dict
+        )
+
+        logger.info('Byndyu validation')
+        _ = validate(
+            cfg, valid_byndyu_loader, valid_byndyu_dataset, model, criterion,
+            final_output_dir, tb_log_dir
         )
 
         if perf_indicator >= best_perf:
@@ -236,12 +248,8 @@ def main():
             'optimizer': optimizer.state_dict(),
         }, best_model, final_output_dir)
 
-    final_model_state_file = os.path.join(
-        final_output_dir, 'final_state.pth'
-    )
-    logger.info('=> saving final model state to {}'.format(
-        final_model_state_file)
-    )
+    final_model_state_file = os.path.join(final_output_dir, 'final_state.pth')
+    logger.info('=> saving final model state to {}'.format(final_model_state_file))
     torch.save(model.module.state_dict(), final_model_state_file)
     writer_dict['writer'].close()
 

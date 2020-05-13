@@ -23,11 +23,8 @@ DATASET:
   TEST_SET: 'val2017'
   TRAIN_SET: 'train2017'
 MODEL:
-  INIT_WEIGHTS: true
-  NAME: pose_hrnet
-  NUM_JOINTS: 17
-  PRETRAINED: 'models/pytorch/imagenet/hrnet_w32-36af842e.pth'
-  TARGET_TYPE: gaussian
+  NAME: 'lpn'
+  PRETRAINED: ''
   IMAGE_SIZE:
   - 192
   - 256
@@ -35,72 +32,33 @@ MODEL:
   - 48
   - 64
   SIGMA: 2
+  NUM_JOINTS: 17
+  TARGET_TYPE: 'gaussian'
   EXTRA:
-    PRETRAINED_LAYERS:
-    - 'conv1'
-    - 'bn1'
-    - 'conv2'
-    - 'bn2'
-    - 'layer1'
-    - 'transition1'
-    - 'stage2'
-    - 'transition2'
-    - 'stage3'
-    - 'transition3'
-    - 'stage4'
+    ATTENTION: 'GC'
     FINAL_CONV_KERNEL: 1
-    STAGE2:
-      NUM_MODULES: 1
-      NUM_BRANCHES: 2
-      BLOCK: BASIC
-      NUM_BLOCKS:
-      - 4
-      - 4
-      NUM_CHANNELS:
-      - 32
-      - 64
-      FUSE_METHOD: SUM
-    STAGE3:
-      NUM_MODULES: 4
-      NUM_BRANCHES: 3
-      BLOCK: BASIC
-      NUM_BLOCKS:
-      - 4
-      - 4
-      - 4
-      NUM_CHANNELS:
-      - 32
-      - 64
-      - 128
-      FUSE_METHOD: SUM
-    STAGE4:
-      NUM_MODULES: 3
-      NUM_BRANCHES: 4
-      BLOCK: BASIC
-      NUM_BLOCKS:
-      - 4
-      - 4
-      - 4
-      - 4
-      NUM_CHANNELS:
-      - 32
-      - 64
-      - 128
-      - 256
-      FUSE_METHOD: SUM
+    DECONV_WITH_BIAS: false
+    NUM_DECONV_LAYERS: 2
+    NUM_DECONV_FILTERS:
+    - 256
+    - 256
+    NUM_DECONV_KERNELS:
+    - 4
+    - 4
+    NUM_LAYERS: 50
 LOSS:
   USE_TARGET_WEIGHT: true
 TRAIN:
   BATCH_SIZE_PER_GPU: 32
   SHUFFLE: true
   BEGIN_EPOCH: 0
-  END_EPOCH: 210
-  OPTIMIZER: adam
+  END_EPOCH: 150
+  OPTIMIZER: 'adam'
   LR: 0.001
   LR_FACTOR: 0.1
   LR_STEP:
-  - 170
-  - 200
+  - 90
+  - 120
   WD: 0.0001
   GAMMA1: 0.99
   GAMMA2: 0.0
@@ -112,13 +70,14 @@ TEST:
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
-  MODEL_FILE: '/home/igor/repo/videopose/joints_detectors/hrnet/models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth'
+  MODEL_FILE: '/home/igor/repo/videopose/joints_detectors/hrnet/models/pytorch/pose_coco/lpn_50_256x192.pth'
   NMS_THRE: 1.0
   OKS_THRE: 0.9
   USE_GT_BBOX: true
   FLIP_TEST: true
   POST_PROCESS: true
   SHIFT_HEATMAP: true
+  SOFT_ARGMAX: true
 DEBUG:
   DEBUG: true
   SAVE_BATCH_IMAGES_GT: true

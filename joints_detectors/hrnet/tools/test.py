@@ -111,32 +111,27 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=False
-    )
+    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=False)
 
-    if not cfg.TEST.MODEL_FILE:
+    if cfg.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(cfg.TEST.MODEL_FILE))
-        model_file_name  = 'models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth' 
-        model.load_state_dict(torch.load(model_file_name), strict=False)
+        # model_file_name = 'models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth'
+        model.load_state_dict(torch.load(cfg.TEST.MODEL_FILE), strict=False)
     else:
-        model_state_file = os.path.join(
-            final_output_dir, 'final_state.pth'
-        )
+        model_state_file = os.path.join(final_output_dir, 'final_state.pth')
         logger.info('=> loading model from {}'.format(model_state_file))
         model.load_state_dict(torch.load(model_state_file))
 
     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = JointsMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+    criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
+    
     valid_dataset = eval('dataset.'+cfg.DATASET.DATASET)(
         cfg, cfg.DATASET.ROOT, cfg.DATASET.TEST_SET, False,
         transforms.Compose([
@@ -144,6 +139,15 @@ def main():
             normalize,
         ])
     )
+
+    valid_byndyu_dataset = dataset.coco(
+        cfg, os.path.join(cfg.DATA_DIR, 'ByndyusoftPoseEstimationDataset'), 'val', False,
+        transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+    )
+    
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=cfg.TEST.BATCH_SIZE_PER_GPU*len(cfg.GPUS),
@@ -151,10 +155,20 @@ def main():
         num_workers=cfg.WORKERS,
         pin_memory=True
     )
+    valid_byndyu_loader = torch.utils.data.DataLoader(
+        valid_byndyu_dataset,
+        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
+        shuffle=False,
+        num_workers=cfg.WORKERS,
+        pin_memory=True
+    )
 
     # evaluate on validation set
-    validate(cfg, valid_loader, valid_dataset, model, criterion,
-             final_output_dir, tb_log_dir)
+    logger.info('COCO or MPII validation')
+    validate(cfg, valid_loader, valid_dataset, model, criterion, final_output_dir, tb_log_dir)
+
+    logger.info('Byndyusoft validation')
+    validate(cfg, valid_byndyu_loader, valid_byndyu_dataset, model, criterion, final_output_dir, tb_log_dir)
 
 
 if __name__ == '__main__':

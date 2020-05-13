@@ -104,6 +104,10 @@ _C.TEST.SHIFT_HEATMAP = False
 
 _C.TEST.USE_GT_BBOX = False
 
+# soft_argmax
+_C.TEST.SOFT_ARGMAX = False
+_C.TEST.BIAS = 0.0
+
 # nms
 _C.TEST.IMAGE_THRE = 0.1
 _C.TEST.NMS_THRE = 0.6

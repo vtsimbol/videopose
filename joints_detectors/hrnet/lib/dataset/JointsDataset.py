@@ -143,11 +143,8 @@ class JointsDataset(Dataset):
         r = 0
 
         if self.is_train:
-            if (np.sum(joints_vis[:, 0]) > self.num_joints_half_body
-                and np.random.rand() < self.prob_half_body):
-                c_half_body, s_half_body = self.half_body_transform(
-                    joints, joints_vis
-                )
+            if np.sum(joints_vis[:, 0]) > self.num_joints_half_body and np.random.rand() < self.prob_half_body:
+                c_half_body, s_half_body = self.half_body_transform(joints, joints_vis)
 
                 if c_half_body is not None and s_half_body is not None:
                     c, s = c_half_body, s_half_body
