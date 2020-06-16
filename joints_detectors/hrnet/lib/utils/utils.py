@@ -68,10 +68,7 @@ def get_optimizer(cfg, model):
             nesterov=cfg.TRAIN.NESTEROV
         )
     elif cfg.TRAIN.OPTIMIZER == 'adam':
-        optimizer = optim.Adam(
-            model.parameters(),
-            lr=cfg.TRAIN.LR
-        )
+        optimizer = optim.Adam(model.parameters(), lr=cfg.TRAIN.LR)
 
     return optimizer
 

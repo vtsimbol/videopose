@@ -8,6 +8,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 import numpy as np
 import cv2
 
@@ -121,3 +122,30 @@ def crop(img, center, scale, output_size, rot=0):
     return dst_img
 
 
+def blur(img):
+    if np.random.randint(0, 2):
+        blur_type = np.random.randint(0, 3)
+        if blur_type == 0:
+            kernel = int(np.random.uniform(1, 10))
+            img_t = cv2.blur(img.copy(), (kernel, kernel))
+        elif blur_type == 1:
+            kernels = [5, 15, 25]
+            kernel = np.random.randint(0, len(kernels))
+            kernel = kernels[kernel]
+            img_t = cv2.GaussianBlur(img.copy(), (kernel, kernel), 0)
+        else:
+            img_t = cv2.bilateralFilter(img.copy(), int(np.random.uniform(5, 15)), 75, 75)
+    else:
+        min_size = min(img.shape[:2])
+        kernel_size = np.random.randint(1 + int(min_size * 0.005), 2 + int(min_size * 0.01))
+
+        kernel = np.zeros((kernel_size, kernel_size))
+        if np.random.randint(0, 2):
+            kernel[:, int((kernel_size - 1) / 2)] = np.ones(kernel_size)
+        else:
+            kernel[int((kernel_size - 1) / 2), :] = np.ones(kernel_size)
+
+        kernel /= kernel_size
+        img_t = cv2.filter2D(img.copy(), -1, kernel)
+
+    return img_t

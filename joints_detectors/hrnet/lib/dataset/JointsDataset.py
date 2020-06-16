@@ -17,9 +17,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from joints_detectors.hrnet.lib.utils.transforms import get_affine_transform
-from joints_detectors.hrnet.lib.utils.transforms import affine_transform
-from joints_detectors.hrnet.lib.utils.transforms import fliplr_joints
+from joints_detectors.hrnet.lib.utils.transforms import get_affine_transform, affine_transform, fliplr_joints, blur
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +40,7 @@ class JointsDataset(Dataset):
         self.scale_factor = cfg.DATASET.SCALE_FACTOR
         self.rotation_factor = cfg.DATASET.ROT_FACTOR
         self.flip = cfg.DATASET.FLIP
+        self.blur = cfg.DATASET.BLUR
         self.num_joints_half_body = cfg.DATASET.NUM_JOINTS_HALF_BODY
         self.prob_half_body = cfg.DATASET.PROB_HALF_BODY
 
@@ -160,6 +159,9 @@ class JointsDataset(Dataset):
                 data_numpy = data_numpy[:, ::-1, :]
                 joints, joints_vis = fliplr_joints(joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
                 c[0] = data_numpy.shape[1] - c[0] - 1
+
+            if self.blur and random.random() <= 0.5:
+                data_numpy = blur(data_numpy)
 
         trans = get_affine_transform(c, s, r, self.image_size)
         input = cv2.warpAffine(

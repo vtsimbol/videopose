@@ -17,6 +17,7 @@ DATASET:
   - 'coco'
   DATA_FORMAT: jpg
   FLIP: true
+  BLUR: true
   NUM_JOINTS_HALF_BODY: 2
   PROB_HALF_BODY: 0.3
   ROOT:
@@ -34,7 +35,7 @@ MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet
   NUM_JOINTS: 4
-  PRETRAINED: ''
+  PRETRAINED: '/mnt/data/logs/videopose/output/16062020_192940_pose_hrnet_w32_224x224_adam_lr1e-3_byndyusoft_foot/checkpoint_ep_82__AP_0.2439.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 224

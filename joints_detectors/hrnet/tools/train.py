@@ -124,7 +124,8 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
+    ckpt = torch.load(cfg.MODEL.PRETRAINED) if cfg.MODEL.PRETRAINED != '' else None
+    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True, ckpt=ckpt)
 
     # copy model file
     this_dir = os.path.dirname(__file__)
@@ -155,9 +156,9 @@ def main():
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     transf = transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
+        transforms.ToTensor(),
+        normalize
+    ])
 
     train_dataset = []
     valid_dataset = []
@@ -186,7 +187,9 @@ def main():
     best_ap = 0.0
     last_epoch = -1
     optimizer = get_optimizer(cfg, model)
-    begin_epoch = cfg.TRAIN.BEGIN_EPOCH
+    if cfg.MODEL.PRETRAINED != '':
+        optimizer.load_state_dict(ckpt['optimizer'])
+    begin_epoch = cfg.TRAIN.BEGIN_EPOCH if cfg.MODEL.PRETRAINED == '' else ckpt['epoch']
     checkpoint_file = os.path.join(final_output_dir, 'checkpoint.pth')
 
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
