@@ -95,7 +95,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
 
 
 def validate(config, val_loader, val_dataset, model, criterion, output_dir,
-             tb_log_dir, writer_dict=None):
+             tb_log_dir, writer_dict=None, ds_name='coco'):
     batch_time = AverageMeter()
     losses = AverageMeter()
     acc = AverageMeter()
@@ -213,25 +213,25 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             writer = writer_dict['writer']
             global_steps = writer_dict['valid_global_steps']
             writer.add_scalar(
-                'valid_loss',
+                f'{ds_name}_valid_loss',
                 losses.avg,
                 global_steps
             )
             writer.add_scalar(
-                'valid_acc',
+                f'{ds_name}_valid_acc',
                 acc.avg,
                 global_steps
             )
             if isinstance(name_values, list):
                 for name_value in name_values:
                     writer.add_scalars(
-                        'valid',
+                        f'{ds_name}_valid',
                         dict(name_value),
                         global_steps
                     )
             else:
                 writer.add_scalars(
-                    'valid',
+                    f'{ds_name}_valid',
                     dict(name_values),
                     global_steps
                 )
