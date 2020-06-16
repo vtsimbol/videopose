@@ -85,8 +85,8 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
 
             writer = writer_dict['writer']
             global_steps = writer_dict['train_global_steps']
-            writer.add_scalar('train_loss', losses.val, global_steps)
-            writer.add_scalar('train_acc', acc.val, global_steps)
+            writer.add_scalar('loss/train', losses.val, global_steps)
+            writer.add_scalar('acc/train', acc.val, global_steps)
             writer_dict['train_global_steps'] = global_steps + 1
 
             prefix = '{}_{}'.format(os.path.join(output_dir, 'train'), i)
@@ -95,7 +95,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
 
 
 def validate(config, val_loader, val_dataset, model, criterion, output_dir,
-             tb_log_dir, writer_dict=None, ds_name='coco'):
+             tb_log_dir, writer_dict=None, root_name='coco'):
     batch_time = AverageMeter()
     losses = AverageMeter()
     acc = AverageMeter()
@@ -104,10 +104,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     model.eval()
 
     num_samples = len(val_dataset)
-    all_preds = np.zeros(
-        (num_samples, config.MODEL.NUM_JOINTS, 3),
-        dtype=np.float32
-    )
+    all_preds = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3), dtype=np.float32)
     all_boxes = np.zeros((num_samples, 6))
     image_path = []
     filenames = []
@@ -191,50 +188,24 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                           loss=losses, acc=acc)
                 logger.info(msg)
 
-                prefix = '{}_{}'.format(
-                    os.path.join(output_dir, 'val'), i
-                )
-                save_debug_images(config, input, meta, target, pred*4, output,
-                                  prefix)
+                prefix = f'{os.path.join(output_dir, "val")}_{i}'
+                save_debug_images(config, input, meta, target, pred * 4, output, prefix)
 
-        name_values, perf_indicator = val_dataset.evaluate(
-            config, all_preds, output_dir, all_boxes, image_path,
-            filenames, imgnums
-        )
+        name_values, perf_indicator = val_dataset.evaluate(config, all_preds, output_dir, all_boxes,
+                                                           image_path, filenames, imgnums)
 
         model_name = config.MODEL.NAME
-        if isinstance(name_values, list):
-            for name_value in name_values:
-                _print_name_value(name_value, model_name)
-        else:
-            _print_name_value(name_values, model_name)
+        _print_name_value(name_values, model_name)
 
         if writer_dict:
+            assert isinstance(name_values, dict)
             writer = writer_dict['writer']
             global_steps = writer_dict['valid_global_steps']
-            writer.add_scalar(
-                f'{ds_name}_valid_loss',
-                losses.avg,
-                global_steps
-            )
-            writer.add_scalar(
-                f'{ds_name}_valid_acc',
-                acc.avg,
-                global_steps
-            )
-            if isinstance(name_values, list):
-                for name_value in name_values:
-                    writer.add_scalars(
-                        f'{ds_name}_valid',
-                        dict(name_value),
-                        global_steps
-                    )
-            else:
-                writer.add_scalars(
-                    f'{ds_name}_valid',
-                    dict(name_values),
-                    global_steps
-                )
+            writer.add_scalar(f'{root_name}_loss/valid', losses.avg, global_steps)
+            writer.add_scalar(f'{root_name}_accuracy/valid', acc.avg, global_steps)
+            for k in name_values.keys():
+                name_metrics = str(k).replace('(', '').replace(')', '').replace(' ', '')
+                writer.add_scalar(f'{root_name}_{name_metrics}/valid', float(name_values[k]), global_steps)
             writer_dict['valid_global_steps'] = global_steps + 1
 
     return perf_indicator

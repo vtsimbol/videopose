@@ -22,18 +22,18 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-import _init_paths
-from config import cfg
-from config import update_config
-from core.loss import JointsMSELoss
-from core.function import train
-from core.function import validate
-import dataset
-from utils.utils import get_optimizer
-from utils.utils import save_checkpoint
-from utils.utils import create_logger
-from utils.utils import get_model_summary
-from utils.custom_torch_transforms import NormalizeEachImg
+import joints_detectors.hrnet.tools._init_paths
+from joints_detectors.hrnet.lib.config import cfg
+from joints_detectors.hrnet.lib.config import update_config
+from joints_detectors.hrnet.lib.core.loss import JointsMSELoss
+from joints_detectors.hrnet.lib.core.function import train
+from joints_detectors.hrnet.lib.core.function import validate
+import joints_detectors.hrnet.lib.dataset as dataset
+from joints_detectors.hrnet.lib.utils.utils import get_optimizer
+from joints_detectors.hrnet.lib.utils.utils import save_checkpoint
+from joints_detectors.hrnet.lib.utils.utils import create_logger
+from joints_detectors.hrnet.lib.utils.utils import get_model_summary
+from joints_detectors.hrnet.lib.utils.custom_torch_transforms import NormalizeEachImg
 
 
 import models
@@ -200,9 +200,11 @@ def main():
 
         score = []
         for i in range(len(cfg.DATASET.DATASET)):
-            logger.info(f'{os.path.basename(cfg.DATASET.ROOT[i])} validation')
+            dataset_name = os.path.basename(cfg.DATASET.ROOT[i])
+            logger.info(f'{dataset_name} validation')
             score.append(
-                validate(cfg, valid_loader[i], valid_dataset[i], model, criterion, final_output_dir, tb_log_dir, writer_dict)
+                validate(cfg, valid_loader[i], valid_dataset[i], model, criterion, final_output_dir,
+                         tb_log_dir, writer_dict, root_name=dataset_name)
             )
 
         score = min(score)
