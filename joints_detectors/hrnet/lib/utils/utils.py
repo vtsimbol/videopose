@@ -77,10 +77,9 @@ def get_optimizer(cfg, model):
 
 
 def save_checkpoint(states, is_best, output_dir, filename='checkpoint.pth'):
-    torch.save(states, os.path.join(output_dir, filename))
+    torch.save(states, os.path.join(output_dir, f'checkpoint_ep_{states["epoch"]}__AP_{states["perf"]:.4f}.pth'))
     if is_best and 'state_dict' in states:
-        torch.save(states['best_state_dict'],
-                   os.path.join(output_dir, f'best_ep_{states["epoch"]}__AP_{states["perf"]:.4f}.pth'))
+        torch.save(states['state_dict'], os.path.join(output_dir, f'best_model_ep_{states["epoch"]}__AP_{states["perf"]:.4f}.pth'))
 
 
 def get_model_summary(model, *input_tensors, item_length=26, verbose=False):

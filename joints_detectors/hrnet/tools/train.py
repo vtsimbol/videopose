@@ -75,6 +75,14 @@ def parse_args():
     return args
 
 
+def get_state_dict(model):
+    try:
+        state_dict = model.module.state_dict()
+    except AttributeError:
+        state_dict = model.state_dict()
+    return state_dict
+
+
 def copy_prev_models(prev_models_dir, model_dir):
     import shutil
 
@@ -221,15 +229,11 @@ def main():
         save_checkpoint({
             'epoch': epoch + 1,
             'model': cfg.MODEL.NAME,
-            'state_dict': model.state_dict(),
-            'best_state_dict': model.module.state_dict(),
+            'state_dict': get_state_dict(model),
             'perf': score,
             'optimizer': optimizer.state_dict(),
         }, best_model, final_output_dir)
 
-    final_model_state_file = os.path.join(final_output_dir, 'final_state.pth')
-    logger.info('=> saving final model state to {}'.format(final_model_state_file))
-    torch.save(model.module.state_dict(), final_model_state_file)
     writer_dict['writer'].close()
 
 
