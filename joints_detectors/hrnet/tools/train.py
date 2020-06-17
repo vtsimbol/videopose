@@ -230,7 +230,7 @@ def main():
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
         save_checkpoint({
-            'epoch': epoch + 1,
+            'epoch': epoch,
             'model': cfg.MODEL.NAME,
             'state_dict': get_state_dict(model),
             'perf': score,
