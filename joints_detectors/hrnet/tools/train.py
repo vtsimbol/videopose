@@ -22,18 +22,20 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-import _init_paths
-from config import cfg
-from config import update_config
-from core.loss import JointsMSELoss
-from core.function import train
-from core.function import validate
-from utils.utils import get_optimizer
-from utils.utils import save_checkpoint
-from utils.utils import create_logger
-from utils.utils import get_model_summary
+import joints_detectors.hrnet.tools._init_paths
+from joints_detectors.hrnet.lib.config import cfg
+from joints_detectors.hrnet.lib.config import update_config
+from joints_detectors.hrnet.lib.core.loss import JointsMSELoss
+from joints_detectors.hrnet.lib.core.function import train
+from joints_detectors.hrnet.lib.core.function import validate
+import joints_detectors.hrnet.lib.dataset as dataset
+from joints_detectors.hrnet.lib.utils.utils import get_optimizer
+from joints_detectors.hrnet.lib.utils.utils import save_checkpoint
+from joints_detectors.hrnet.lib.utils.utils import create_logger
+from joints_detectors.hrnet.lib.utils.utils import get_model_summary
+from joints_detectors.hrnet.lib.utils.custom_torch_transforms import NormalizeEachImg
 
-import dataset
+
 import models
 
 
@@ -71,6 +73,14 @@ def parse_args():
     args = parser.parse_args()
 
     return args
+
+
+def get_state_dict(model):
+    try:
+        state_dict = model.module.state_dict()
+    except AttributeError:
+        state_dict = model.state_dict()
+    return state_dict
 
 
 def copy_prev_models(prev_models_dir, model_dir):
@@ -114,7 +124,8 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
+    ckpt = torch.load(cfg.MODEL.PRETRAINED) if cfg.MODEL.PRETRAINED != '' else None
+    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True, ckpt=ckpt)
 
     # copy model file
     this_dir = os.path.dirname(__file__)
@@ -127,7 +138,7 @@ def main():
         'valid_global_steps': 0,
     }
 
-    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    dump_input = torch.rand((1, 1 if cfg.MODEL.GRAYSCALE else 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
     logger.info(get_model_summary(model, dump_input))
@@ -138,30 +149,26 @@ def main():
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-    train_dataset = eval('dataset.'+cfg.DATASET.DATASET)(
-        cfg, cfg.DATASET.ROOT, cfg.DATASET.TRAIN_SET, True,
-        transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    valid_dataset = eval('dataset.'+cfg.DATASET.DATASET)(
-        cfg, cfg.DATASET.ROOT, cfg.DATASET.TEST_SET, False,
-        transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    valid_byndyu_dataset = dataset.coco(
-        cfg, os.path.join(cfg.DATA_DIR, 'ByndyusoftPoseEstimationDataset'), 'val', False,
-        transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
+    if cfg.MODEL.NORM_EACH_IMG:
+        normalize = NormalizeEachImg()
+    else:
+        normalize = transforms.Normalize(mean=[0.449], std=[0.226]) if cfg.MODEL.GRAYSCALE else \
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    transf = transforms.Compose([
+        transforms.ToTensor(),
+        normalize
+    ])
+
+    train_dataset = []
+    valid_dataset = []
+    for i in range(len(cfg.DATASET.DATASET)):
+        train_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
+                                                                       cfg.DATASET.TRAIN_SET[i], True, transf))
+        valid_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
+                                                                       cfg.DATASET.TEST_SET[i], False, transf))
+
+    train_dataset = dataset.Concatenator(train_dataset)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -170,87 +177,66 @@ def main():
         num_workers=cfg.WORKERS,
         pin_memory=cfg.PIN_MEMORY
     )
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-        shuffle=False,
-        num_workers=cfg.WORKERS,
-        pin_memory=cfg.PIN_MEMORY
-    )
+    valid_loader = []
+    for ds in valid_dataset:
+        valid_loader.append(
+            torch.utils.data.DataLoader(ds, batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS), shuffle=False,
+                                        num_workers=cfg.WORKERS, pin_memory=cfg.PIN_MEMORY)
+        )
 
-    valid_byndyu_loader = torch.utils.data.DataLoader(
-        valid_byndyu_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-        shuffle=False,
-        num_workers=cfg.WORKERS,
-        pin_memory=cfg.PIN_MEMORY
-    )
-
-    best_perf = 0.0
-    best_model = False
+    best_ap = 0.0
     last_epoch = -1
     optimizer = get_optimizer(cfg, model)
-    begin_epoch = cfg.TRAIN.BEGIN_EPOCH
-    checkpoint_file = os.path.join(
-        final_output_dir, 'checkpoint.pth'
-    )
+    if cfg.MODEL.PRETRAINED != '':
+        optimizer.load_state_dict(ckpt['optimizer'])
+    begin_epoch = cfg.TRAIN.BEGIN_EPOCH if cfg.MODEL.PRETRAINED == '' else ckpt['epoch']
+    checkpoint_file = os.path.join(final_output_dir, 'checkpoint.pth')
 
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
         logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
         checkpoint = torch.load(checkpoint_file)
         begin_epoch = checkpoint['epoch']
-        best_perf = checkpoint['perf']
+        best_ap = checkpoint['perf']
         last_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['state_dict'])
 
         optimizer.load_state_dict(checkpoint['optimizer'])
-        logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-            checkpoint_file, checkpoint['epoch']))
+        logger.info(f'=> loaded checkpoint {checkpoint_file} (epoch {checkpoint["epoch"]})')
 
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer, cfg.TRAIN.LR_STEP, cfg.TRAIN.LR_FACTOR,
-        last_epoch=last_epoch
-    )
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, cfg.TRAIN.LR_STEP,
+                                                        cfg.TRAIN.LR_FACTOR, last_epoch=last_epoch)
 
     for epoch in range(begin_epoch, cfg.TRAIN.END_EPOCH):
+        train(cfg, train_loader, model, criterion, optimizer, epoch, final_output_dir, tb_log_dir, writer_dict)
+
+        score = []
+        for i in range(len(cfg.DATASET.DATASET)):
+            dataset_name = os.path.basename(cfg.DATASET.ROOT[i])
+            logger.info(f'{dataset_name} validation')
+            score.append(
+                validate(cfg, valid_loader[i], valid_dataset[i], model, criterion, final_output_dir,
+                         tb_log_dir, writer_dict, root_name=dataset_name)
+            )
+
+        score = min(score)
         lr_scheduler.step()
+        logger.info(f'Epoch {epoch} | current learning rate: {lr_scheduler.get_lr()} | main val score (AP): {score:.3f}')
 
-        # train for one epoch
-        train(cfg, train_loader, model, criterion, optimizer, epoch,
-              final_output_dir, tb_log_dir, writer_dict)
-
-        # evaluate on validation set
-        logger.info('COCO or MPII validation')
-        perf_indicator = validate(
-            cfg, valid_loader, valid_dataset, model, criterion,
-            final_output_dir, tb_log_dir, writer_dict
-        )
-
-        logger.info('Byndyu validation')
-        _ = validate(
-            cfg, valid_byndyu_loader, valid_byndyu_dataset, model, criterion,
-            final_output_dir, tb_log_dir
-        )
-
-        if perf_indicator >= best_perf:
-            best_perf = perf_indicator
+        if score >= best_ap:
+            best_ap = score
             best_model = True
         else:
             best_model = False
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
         save_checkpoint({
-            'epoch': epoch + 1,
+            'epoch': epoch,
             'model': cfg.MODEL.NAME,
-            'state_dict': model.state_dict(),
-            'best_state_dict': model.module.state_dict(),
-            'perf': perf_indicator,
+            'state_dict': get_state_dict(model),
+            'perf': score,
             'optimizer': optimizer.state_dict(),
         }, best_model, final_output_dir)
 
-    final_model_state_file = os.path.join(final_output_dir, 'final_state.pth')
-    logger.info('=> saving final model state to {}'.format(final_model_state_file))
-    torch.save(model.module.state_dict(), final_model_state_file)
     writer_dict['writer'].close()
 
 

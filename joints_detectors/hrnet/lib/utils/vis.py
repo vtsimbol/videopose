@@ -78,31 +78,23 @@ def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
     preds, maxvals = get_max_preds(batch_heatmaps.detach().cpu().numpy())
 
     for i in range(batch_size):
-        image = batch_image[i].mul(255)\
-                              .clamp(0, 255)\
-                              .byte()\
-                              .permute(1, 2, 0)\
-                              .cpu().numpy()
-        heatmaps = batch_heatmaps[i].mul(255)\
-                                    .clamp(0, 255)\
-                                    .byte()\
-                                    .cpu().numpy()
+        image = batch_image[i].mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
+        heatmaps = batch_heatmaps[i].mul(255).clamp(0, 255).byte().cpu().numpy()
 
-        resized_image = cv2.resize(image,
-                                   (int(heatmap_width), int(heatmap_height)))
+        resized_image = cv2.resize(image, (int(heatmap_width), int(heatmap_height)))
 
         height_begin = heatmap_height * i
         height_end = heatmap_height * (i + 1)
         for j in range(num_joints):
-            cv2.circle(resized_image,
-                       (int(preds[i][j][0]), int(preds[i][j][1])),
-                       1, [0, 0, 255], 1)
+            cv2.circle(resized_image, (int(preds[i][j][0]), int(preds[i][j][1])), 1, [0, 0, 255], 1)
             heatmap = heatmaps[j, :, :]
             colored_heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+            if len(resized_image.shape) == 2 or (len(resized_image.shape) > 2 and resized_image.shape[2] == 1):
+                resized_image = cv2.cvtColor(resized_image, cv2.COLOR_GRAY2BGR)
+
             masked_image = colored_heatmap*0.7 + resized_image*0.3
-            cv2.circle(masked_image,
-                       (int(preds[i][j][0]), int(preds[i][j][1])),
-                       1, [0, 0, 255], 1)
+            cv2.circle(masked_image, (int(preds[i][j][0]), int(preds[i][j][1])), 1, [0, 0, 255], 1)
 
             width_begin = heatmap_width * (j+1)
             width_end = heatmap_width * (j+2)

@@ -18,9 +18,9 @@ from pycocotools.cocoeval import COCOeval
 import json_tricks as json
 import numpy as np
 
-from dataset.JointsDataset import JointsDataset
-from nms.nms import oks_nms
-from nms.nms import soft_oks_nms
+from joints_detectors.hrnet.lib.dataset.JointsDataset import JointsDataset
+from joints_detectors.hrnet.lib.nms.nms import oks_nms
+from joints_detectors.hrnet.lib.nms.nms import soft_oks_nms
 
 
 logger = logging.getLogger(__name__)
@@ -87,20 +87,27 @@ class COCODataset(JointsDataset):
         self.num_images = len(self.image_set_index)
         logger.info('=> num_images: {}'.format(self.num_images))
 
-        self.num_joints = 17
-        self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8],
-                           [9, 10], [11, 12], [13, 14], [15, 16]]
-        self.parent_ids = None
-        self.upper_body_ids = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-        self.lower_body_ids = (11, 12, 13, 14, 15, 16)
+        self.num_joints = cfg.MODEL.NUM_JOINTS
+        self._coco_foot_keypoints = cfg.MODEL.NUM_JOINTS == 4
 
-        self.joints_weight = np.array(
-            [
-                1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
-                1.5, 1.5, 1., 1., 1.2, 1.2, 1.5, 1.5
-            ],
-            dtype=np.float32
-        ).reshape((self.num_joints, 1))
+        self.parent_ids = None
+
+        if self.num_joints == 17:
+            self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8],
+                               [9, 10], [11, 12], [13, 14], [15, 16]]
+            self.upper_body_ids = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+            self.lower_body_ids = (11, 12, 13, 14, 15, 16)
+            self.joints_weight = np.array(
+                [
+                    1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
+                    1.5, 1.5, 1., 1., 1.2, 1.2, 1.5, 1.5
+                ],
+                dtype=np.float32).reshape((self.num_joints, 1))
+        else:
+            self.flip_pairs = [[0, 2], [1, 3]]
+            self.upper_body_ids = (0, 1, 2, 3)
+            self.lower_body_ids = (0, 1, 2, 3)
+            self.joints_weight = np.ones(self.num_joints, dtype=np.float32).reshape((self.num_joints, 1))
 
         self.db = self._get_db()
 
@@ -111,8 +118,7 @@ class COCODataset(JointsDataset):
 
     def _get_ann_file_keypoint(self):
         """ self.root / annotations / person_keypoints_train2017.json """
-        prefix = 'person_keypoints' \
-            if 'test' not in self.image_set else 'image_info'
+        prefix = 'person_keypoints' if 'test' not in self.image_set else 'image_info'
         return os.path.join(
             self.root,
             'annotations',
@@ -121,8 +127,27 @@ class COCODataset(JointsDataset):
 
     def _load_image_set_index(self):
         """ image id: int """
-        image_ids = self.coco.getImgIds()
+        img_set = self._get_image_set_name()
+
+        image_ids = []
+        for id in self.coco.getImgIds():
+            if os.path.exists(os.path.join(self.root, 'images', img_set, f'{id:012}.{self.data_format}')):
+                image_ids.append(id)
         return image_ids
+
+    def _get_image_set_name(self):
+        if 'test' in self.image_set:
+            return 'test2017'
+
+        img_dirs = [os.path.join(self.root, 'images', d) for d in os.listdir(os.path.join(self.root, 'images'))
+                    if os.path.isdir(os.path.join(self.root, 'images', d))]
+        for d in img_dirs:
+            if self.is_train:
+                if 'train' in os.path.basename(d):
+                    return os.path.basename(d)
+            elif 'val' in os.path.basename(d):
+                return os.path.basename(d)
+        RuntimeError('Unknown image set')
 
     def _get_db(self):
         if self.is_train or self.use_gt_bbox:
@@ -230,17 +255,13 @@ class COCODataset(JointsDataset):
 
     def image_path_from_index(self, index):
         """ example: images / train2017 / 000000119993.jpg """
-        file_name = '%012d.jpg' % index
+        file_name = f'{index:012}.jpg'
         if '2014' in self.image_set:
             file_name = 'COCO_%s_' % self.image_set + file_name
 
-        prefix = 'test2017' if 'test' in self.image_set else self.image_set
-
+        prefix = self._get_image_set_name()
         data_name = prefix + '.zip@' if self.data_format == 'zip' else prefix
-
-        image_path = os.path.join(
-            self.root, 'images', data_name, file_name)
-
+        image_path = os.path.join(self.root, 'images', data_name, file_name)
         return image_path
 
     def _load_coco_person_detection_results(self):
@@ -286,25 +307,26 @@ class COCODataset(JointsDataset):
             self.image_thre, num_boxes))
         return kpt_db
 
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path,
-                 *args, **kwargs):
+    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, *args, **kwargs):
         rank = cfg.RANK
 
         res_folder = os.path.join(output_dir, 'results')
         if not os.path.exists(res_folder):
             try:
                 os.makedirs(res_folder)
-            except Exception:
-                logger.error('Fail to make {}'.format(res_folder))
+            except Exception as e:
+                logger.error(f'Fail to make {res_folder} - {e}')
 
-        res_file = os.path.join(
-            res_folder, 'keypoints_{}_results_{}.json'.format(
-                self.image_set, rank)
-        )
+        res_file = os.path.join(res_folder, f'keypoints_{self.image_set}_results_{rank}.json')
 
         # person x (keypoints)
         _kpts = []
         for idx, kpt in enumerate(preds):
+            if self._coco_foot_keypoints:
+                tmp = np.zeros((17, kpt.shape[1]))
+                tmp[:len(kpt), :] = kpt
+                kpt = tmp
+
             _kpts.append({
                 'keypoints': kpt,
                 'center': all_boxes[idx][0:2],
@@ -355,11 +377,9 @@ class COCODataset(JointsDataset):
             else:
                 oks_nmsed_kpts.append([img_kpts[_keep] for _keep in keep])
 
-        self._write_coco_keypoint_results(
-            oks_nmsed_kpts, res_file)
+        self._write_coco_keypoint_results(oks_nmsed_kpts, res_file)
         if 'test' not in self.image_set:
-            info_str = self._do_python_keypoint_eval(
-                res_file, res_folder)
+            info_str = self._do_python_keypoint_eval(res_file, res_folder)
             name_value = OrderedDict(info_str)
             return name_value, name_value['AP']
         else:
@@ -397,18 +417,16 @@ class COCODataset(JointsDataset):
         cat_id = data_pack['cat_id']
         keypoints = data_pack['keypoints']
         cat_results = []
+        num_joints = 17
 
         for img_kpts in keypoints:
             if len(img_kpts) == 0:
                 continue
 
-            _key_points = np.array([img_kpts[k]['keypoints']
-                                    for k in range(len(img_kpts))])
-            key_points = np.zeros(
-                (_key_points.shape[0], self.num_joints * 3), dtype=np.float
-            )
+            _key_points = np.array([img_kpts[k]['keypoints'] for k in range(len(img_kpts))])
+            key_points = np.zeros((_key_points.shape[0], num_joints * 3), dtype=np.float)
 
-            for ipt in range(self.num_joints):
+            for ipt in range(num_joints):
                 key_points[:, ipt * 3 + 0] = _key_points[:, ipt, 0]
                 key_points[:, ipt * 3 + 1] = _key_points[:, ipt, 1]
                 key_points[:, ipt * 3 + 2] = _key_points[:, ipt, 2]  # keypoints score.
@@ -443,3 +461,32 @@ class COCODataset(JointsDataset):
             info_str.append((name, coco_eval.stats[ind]))
 
         return info_str
+
+
+if __name__ == '__main__':
+    import json
+    import cv2
+
+    img_dir = 'path to image dir'
+    anno_path = 'path to .json annotation file'
+    with open(anno_path, 'r') as file:
+        anno = json.load(file)
+    for data in anno["annotations"]:
+        img_id = data['image_id']
+        filename = None
+        for img_data in anno["images"]:
+            if img_data['id'] == img_id:
+                filename = img_data['file_name']
+                break
+        if filename is None:
+            RuntimeError('Filename not found')
+
+        img = cv2.imread(os.path.join(img_dir, filename))
+        for i in range(0, len(data['keypoints']), 3):
+            x, y, v = data['keypoints'][i], data['keypoints'][i + 1], data['keypoints'][i + 2]
+            if v > 0:
+                color = (0, 0, 255) if v == 2 else (0, 0, 0)
+                img = cv2.circle(img, (int(x), int(y)), 2, color, 1)
+                img = cv2.putText(img, f'{int(i / 3)}', (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1)
+        cv2.imshow('debug', img)
+        cv2.waitKey(0)

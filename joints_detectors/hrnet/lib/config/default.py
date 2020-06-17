@@ -42,6 +42,8 @@ _C.MODEL.TAG_PER_JOINT = True
 _C.MODEL.TARGET_TYPE = 'gaussian'
 _C.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
 _C.MODEL.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
+_C.MODEL.GRAYSCALE = False
+_C.MODEL.NORM_EACH_IMG = False
 _C.MODEL.SIGMA = 2
 _C.MODEL.EXTRA = CN(new_allowed=True)
 
@@ -53,16 +55,17 @@ _C.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
 
 # DATASET related params
 _C.DATASET = CN()
-_C.DATASET.ROOT = ''
-_C.DATASET.DATASET = 'mpii'
-_C.DATASET.TRAIN_SET = 'train'
-_C.DATASET.TEST_SET = 'valid'
+_C.DATASET.ROOT = ['coco', 'coco']
+_C.DATASET.DATASET = ['coco', 'coco']
+_C.DATASET.TRAIN_SET = ['train', 'train']
+_C.DATASET.TEST_SET = ['valid', 'val']
 _C.DATASET.DATA_FORMAT = 'jpg'
 _C.DATASET.HYBRID_JOINTS_TYPE = ''
 _C.DATASET.SELECT_DATA = False
 
 # training data augmentation
 _C.DATASET.FLIP = True
+_C.DATASET.BLUR = False
 _C.DATASET.SCALE_FACTOR = 0.25
 _C.DATASET.ROT_FACTOR = 30
 _C.DATASET.PROB_HALF_BODY = 0.0
@@ -141,13 +144,10 @@ def update_config(cfg, args):
     if args.dataDir:
         cfg.DATA_DIR = args.dataDir
 
-    cfg.DATASET.ROOT = os.path.join(
-        cfg.DATA_DIR, cfg.DATASET.ROOT
-    )
+    cfg.DATASET.ROOT = [os.path.join(cfg.DATA_DIR, root) for root in cfg.DATASET.ROOT]
 
-    cfg.MODEL.PRETRAINED = os.path.join(
-        cfg.DATA_DIR, cfg.MODEL.PRETRAINED
-    )
+    if cfg.MODEL.PRETRAINED != '':
+        cfg.MODEL.PRETRAINED = os.path.join(cfg.DATA_DIR, cfg.MODEL.PRETRAINED)
 
     if cfg.TEST.MODEL_FILE:
         cfg.TEST.MODEL_FILE = os.path.join(

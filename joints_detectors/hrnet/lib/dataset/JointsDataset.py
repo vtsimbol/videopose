@@ -17,9 +17,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from utils.transforms import get_affine_transform
-from utils.transforms import affine_transform
-from utils.transforms import fliplr_joints
+from joints_detectors.hrnet.lib.utils.transforms import get_affine_transform, affine_transform, fliplr_joints, blur
 
 
 logger = logging.getLogger(__name__)
@@ -42,9 +40,12 @@ class JointsDataset(Dataset):
         self.scale_factor = cfg.DATASET.SCALE_FACTOR
         self.rotation_factor = cfg.DATASET.ROT_FACTOR
         self.flip = cfg.DATASET.FLIP
+        self.blur = cfg.DATASET.BLUR
         self.num_joints_half_body = cfg.DATASET.NUM_JOINTS_HALF_BODY
         self.prob_half_body = cfg.DATASET.PROB_HALF_BODY
+
         self.color_rgb = cfg.DATASET.COLOR_RGB
+        self.grayscale = cfg.MODEL.GRAYSCALE
 
         self.target_type = cfg.MODEL.TARGET_TYPE
         self.image_size = np.array(cfg.MODEL.IMAGE_SIZE)
@@ -119,16 +120,16 @@ class JointsDataset(Dataset):
 
         if self.data_format == 'zip':
             from utils import zipreader
-            data_numpy = zipreader.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
-            )
+            data_numpy = zipreader.imread(image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         else:
-            data_numpy = cv2.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
-            )
+            data_numpy = cv2.imread(image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
 
         if self.color_rgb:
             data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
+
+        if self.grayscale:
+            data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2GRAY)
+            data_numpy = np.expand_dims(data_numpy, axis=2)
 
         if data_numpy is None:
             logger.error('=> fail to read {}'.format(image_file))
@@ -151,15 +152,16 @@ class JointsDataset(Dataset):
 
             sf = self.scale_factor
             rf = self.rotation_factor
-            s = s * np.clip(np.random.randn()*sf + 1, 1 - sf, 1 + sf)
-            r = np.clip(np.random.randn()*rf, -rf*2, rf*2) \
-                if random.random() <= 0.6 else 0
+            s = s * np.clip(np.random.randn() * sf + 1, 1 - sf, 1 + sf)
+            r = np.clip(np.random.randn() * rf, -rf * 2, rf * 2) if random.random() <= 0.6 else 0
 
             if self.flip and random.random() <= 0.5:
                 data_numpy = data_numpy[:, ::-1, :]
-                joints, joints_vis = fliplr_joints(
-                    joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
+                joints, joints_vis = fliplr_joints(joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
                 c[0] = data_numpy.shape[1] - c[0] - 1
+
+            if self.blur and random.random() <= 0.5:
+                data_numpy = blur(data_numpy)
 
         trans = get_affine_transform(c, s, r, self.image_size)
         input = cv2.warpAffine(
