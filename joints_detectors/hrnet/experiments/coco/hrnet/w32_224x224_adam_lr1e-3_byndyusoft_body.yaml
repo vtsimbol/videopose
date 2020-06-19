@@ -5,28 +5,37 @@ CUDNN:
   ENABLED: true
 DATA_DIR: '/home/igor/datasets'
 GPUS: (0,)
-OUTPUT_DIR: '/home/igor/repo/videopose/joints_detectors/hrnet/output'
-LOG_DIR: '/home/igor/repo/videopose/joints_detectors/hrnet/log'
+OUTPUT_DIR: '/mnt/data/logs/videopose/output'
+LOG_DIR: '/mnt/data/logs/videopose/log'
 WORKERS: 12
 PRINT_FREQ: 100
 
 DATASET:
-  COLOR_RGB: true
-  DATASET: 'coco'
+  COLOR_RGB: false
+  DATASET:
+  - 'coco'
+  - 'coco'
   DATA_FORMAT: jpg
   FLIP: true
+  BLUR: true
   NUM_JOINTS_HALF_BODY: 8
   PROB_HALF_BODY: 0.3
-  ROOT: 'coco'
+  ROOT:
+  - 'coco'
+  - 'ByndyusoftPoseEstimationDataset'
   ROT_FACTOR: 45
   SCALE_FACTOR: 0.35
-  TEST_SET: 'val2017'
-  TRAIN_SET: 'train2017'
+  TEST_SET:
+  - 'val2017'
+  - 'val'
+  TRAIN_SET:
+  - 'train2017'
+  - ''
 MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet
   NUM_JOINTS: 17
-  PRETRAINED: '/home/igor/repo/videopose/joints_detectors/hrnet/models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth'
+  PRETRAINED: ''
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 224
@@ -34,6 +43,8 @@ MODEL:
   HEATMAP_SIZE:
   - 56
   - 56
+  GRAYSCALE: true
+  NORM_EACH_IMG: true
   SIGMA: 2
   EXTRA:
     PRETRAINED_LAYERS:
@@ -51,36 +62,42 @@ MODEL:
     FINAL_CONV_KERNEL: 1
     STAGE2:
       NUM_MODULES: 1
-      NUM_BRANCHES: 1
-      BLOCK: BASIC
-      NUM_BLOCKS:
-      - 4
-      NUM_CHANNELS:
-      - 32
-      FUSE_METHOD: SUM
-    STAGE3:
-      NUM_MODULES: 1
       NUM_BRANCHES: 2
       BLOCK: BASIC
       NUM_BLOCKS:
-      - 4
-      - 4
+      - 2
+      - 2
       NUM_CHANNELS:
       - 32
       - 64
       FUSE_METHOD: SUM
-    STAGE4:
-      NUM_MODULES: 1
+    STAGE3:
+      NUM_MODULES: 2
       NUM_BRANCHES: 3
       BLOCK: BASIC
       NUM_BLOCKS:
-      - 4
-      - 4
-      - 4
+      - 2
+      - 2
+      - 2
       NUM_CHANNELS:
       - 32
       - 64
       - 128
+      FUSE_METHOD: SUM
+    STAGE4:
+      NUM_MODULES: 2
+      NUM_BRANCHES: 4
+      BLOCK: BASIC
+      NUM_BLOCKS:
+      - 2
+      - 2
+      - 2
+      - 2
+      NUM_CHANNELS:
+      - 32
+      - 64
+      - 128
+      - 256
       FUSE_METHOD: SUM
 LOSS:
   USE_TARGET_WEIGHT: true
@@ -88,7 +105,7 @@ TRAIN:
   BATCH_SIZE_PER_GPU: 16
   SHUFFLE: true
   BEGIN_EPOCH: 0
-  END_EPOCH: 220
+  END_EPOCH: 210
   OPTIMIZER: adam
   LR: 0.001
   LR_FACTOR: 0.1
@@ -102,7 +119,7 @@ TRAIN:
   NESTEROV: false
 TEST:
   BATCH_SIZE_PER_GPU: 8
-  COCO_BBOX_FILE: '/home/igor/datasets/coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
+  COCO_BBOX_FILE: '/home/igor/datasets/ByndyusoftPoseEstimationDataset/annotations/person_keypoints_val.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2

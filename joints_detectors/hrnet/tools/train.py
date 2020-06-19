@@ -163,10 +163,14 @@ def main():
     train_dataset = []
     valid_dataset = []
     for i in range(len(cfg.DATASET.DATASET)):
-        train_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
-                                                                       cfg.DATASET.TRAIN_SET[i], True, transf))
-        valid_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
-                                                                       cfg.DATASET.TEST_SET[i], False, transf))
+        if cfg.DATASET.TRAIN_SET[i] != '':
+            train_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
+                                                                           cfg.DATASET.TRAIN_SET[i], True, transf))
+        if cfg.DATASET.TEST_SET[i] != '':
+            valid_dataset.append(eval('dataset.' + cfg.DATASET.DATASET[i])(cfg, cfg.DATASET.ROOT[i],
+                                                                           cfg.DATASET.TEST_SET[i], False, transf))
+        else:
+            valid_dataset.append(None)
 
     train_dataset = dataset.Concatenator(train_dataset)
 
@@ -179,10 +183,11 @@ def main():
     )
     valid_loader = []
     for ds in valid_dataset:
-        valid_loader.append(
-            torch.utils.data.DataLoader(ds, batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS), shuffle=False,
-                                        num_workers=cfg.WORKERS, pin_memory=cfg.PIN_MEMORY)
-        )
+        if ds is not None:
+            valid_loader.append(
+                torch.utils.data.DataLoader(ds, batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS), shuffle=False,
+                                            num_workers=cfg.WORKERS, pin_memory=cfg.PIN_MEMORY)
+            )
 
     best_ap = 0.0
     last_epoch = -1
@@ -211,12 +216,13 @@ def main():
 
         score = []
         for i in range(len(cfg.DATASET.DATASET)):
-            dataset_name = os.path.basename(cfg.DATASET.ROOT[i])
-            logger.info(f'{dataset_name} validation')
-            score.append(
-                validate(cfg, valid_loader[i], valid_dataset[i], model, criterion, final_output_dir,
-                         tb_log_dir, writer_dict, root_name=dataset_name)
-            )
+            if valid_dataset[i] is not None:
+                dataset_name = os.path.basename(cfg.DATASET.ROOT[i])
+                logger.info(f'{dataset_name} validation')
+                score.append(
+                    validate(cfg, valid_loader[i], valid_dataset[i], model, criterion, final_output_dir,
+                             tb_log_dir, writer_dict, root_name=dataset_name)
+                )
 
         score = min(score)
         lr_scheduler.step()

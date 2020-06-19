@@ -144,15 +144,17 @@ def update_config(cfg, args):
     if args.dataDir:
         cfg.DATA_DIR = args.dataDir
 
+    assert len(cfg.DATASET.ROOT) == len(cfg.DATASET.DATASET)
+    assert len(cfg.DATASET.TRAIN_SET) == len(cfg.DATASET.DATASET)
+    assert len(cfg.DATASET.TEST_SET) == len(cfg.DATASET.DATASET)
+
     cfg.DATASET.ROOT = [os.path.join(cfg.DATA_DIR, root) for root in cfg.DATASET.ROOT]
 
     if cfg.MODEL.PRETRAINED != '':
         cfg.MODEL.PRETRAINED = os.path.join(cfg.DATA_DIR, cfg.MODEL.PRETRAINED)
 
     if cfg.TEST.MODEL_FILE:
-        cfg.TEST.MODEL_FILE = os.path.join(
-            cfg.DATA_DIR, cfg.TEST.MODEL_FILE
-        )
+        cfg.TEST.MODEL_FILE = os.path.join(cfg.DATA_DIR, cfg.TEST.MODEL_FILE)
 
     cfg.freeze()
 

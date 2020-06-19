@@ -483,7 +483,7 @@ class PoseHighResolutionNet(nn.Module):
 def get_pose_net(cfg, is_train, ckpt=None, **kwargs):
     model = PoseHighResolutionNet(cfg, **kwargs)
     if ckpt is not None:
-        model.load_state_dict(ckpt['state_dict'], strict=True)
+        model.load_state_dict(ckpt['state_dict'], strict=False)
     elif is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
