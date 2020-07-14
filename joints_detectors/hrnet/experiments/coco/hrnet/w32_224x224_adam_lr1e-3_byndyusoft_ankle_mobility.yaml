@@ -3,10 +3,10 @@ CUDNN:
   BENCHMARK: true
   DETERMINISTIC: false
   ENABLED: true
-DATA_DIR: '/home/igor/datasets'
+DATA_DIR: '/home/vladimir/My_Datasets'
 GPUS: (0,)
-OUTPUT_DIR: '/mnt/data/logs/videopose/output'
-LOG_DIR: '/mnt/data/logs/videopose/log'
+OUTPUT_DIR: '/home/vladimir/bitbucket/videopose/joints_detectors/hrnet/output'
+LOG_DIR: '/home/vladimir/bitbucket/videopose/joints_detectors/hrnet/log'
 WORKERS: 12
 PRINT_FREQ: 100
 
@@ -21,8 +21,8 @@ DATASET:
   PROB_HALF_BODY: 0.3
   ROOT:
   - 'byndyu_ankle_mobility_heel_coco_format'
-  ROT_FACTOR: 45
-  SCALE_FACTOR: 0.35
+  ROT_FACTOR: 5
+  SCALE_FACTOR: 0.4
   TEST_SET:
   - 'val'
   TRAIN_SET:
@@ -115,7 +115,7 @@ TRAIN:
   NESTEROV: false
 TEST:
   BATCH_SIZE_PER_GPU: 8
-  COCO_BBOX_FILE: '/home/igor/datasets/byndyu_ankle_mobility_heel_coco_format/annotations/person_keypoints_val.json'
+  COCO_BBOX_FILE: '/home/vladimir/My_Datasets/byndyu_ankle_mobility_heel_coco_format/annotations/person_keypoints_val.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
