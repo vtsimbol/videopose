@@ -68,8 +68,7 @@ class COCODataset(JointsDataset):
         self.coco = COCO(self._get_ann_file_keypoint())
 
         # deal with class names
-        cats = [cat['name']
-                for cat in self.coco.loadCats(self.coco.getCatIds())]
+        cats = [cat['name'] for cat in self.coco.loadCats(self.coco.getCatIds())]
         self.classes = ['__background__'] + cats
         logger.info('=> classes: {}'.format(self.classes))
         self.num_classes = len(self.classes)
@@ -77,8 +76,7 @@ class COCODataset(JointsDataset):
         self._class_to_coco_ind = dict(zip(cats, self.coco.getCatIds()))
         self._coco_ind_to_class_ind = dict(
             [
-                (self._class_to_coco_ind[cls], self._class_to_ind[cls])
-                for cls in self.classes[1:]
+                (self._class_to_coco_ind[cls], self._class_to_ind[cls]) for cls in self.classes[1:]
             ]
         )
 
@@ -88,7 +86,7 @@ class COCODataset(JointsDataset):
         logger.info('=> num_images: {}'.format(self.num_images))
 
         self.num_joints = cfg.MODEL.NUM_JOINTS
-        self._coco_foot_keypoints = cfg.MODEL.NUM_JOINTS == 4
+        self._coco_foot_keypoints = cfg.MODEL.NUM_JOINTS == 4 or cfg.MODEL.NUM_JOINTS == 2
 
         self.parent_ids = None
 
@@ -103,11 +101,18 @@ class COCODataset(JointsDataset):
                     1.5, 1.5, 1., 1., 1.2, 1.2, 1.5, 1.5
                 ],
                 dtype=np.float32).reshape((self.num_joints, 1))
-        else:
+        elif self.num_joints == 4:
             self.flip_pairs = [[0, 2], [1, 3]]
             self.upper_body_ids = (0, 1, 2, 3)
             self.lower_body_ids = (0, 1, 2, 3)
             self.joints_weight = np.ones(self.num_joints, dtype=np.float32).reshape((self.num_joints, 1))
+        elif self.num_joints == 2:
+            self.flip_pairs = [[0, 1]]
+            self.upper_body_ids = (0, 1)
+            self.lower_body_ids = (0, 1)
+            self.joints_weight = np.ones(self.num_joints, dtype=np.float32).reshape((self.num_joints, 1))
+        else:
+            raise NotImplementedError()
 
         self.db = self._get_db()
 
@@ -119,11 +124,7 @@ class COCODataset(JointsDataset):
     def _get_ann_file_keypoint(self):
         """ self.root / annotations / person_keypoints_train2017.json """
         prefix = 'person_keypoints' if 'test' not in self.image_set else 'image_info'
-        return os.path.join(
-            self.root,
-            'annotations',
-            prefix + '_' + self.image_set + '.json'
-        )
+        return os.path.join(self.root, 'annotations', prefix + '_' + self.image_set + '.json')
 
     def _load_image_set_index(self):
         """ image id: int """
@@ -292,8 +293,7 @@ class COCODataset(JointsDataset):
 
             center, scale = self._box2cs(box)
             joints_3d = np.zeros((self.num_joints, 3), dtype=np.float)
-            joints_3d_vis = np.ones(
-                (self.num_joints, 3), dtype=np.float)
+            joints_3d_vis = np.ones((self.num_joints, 3), dtype=np.float)
             kpt_db.append({
                 'image': img_name,
                 'center': center,
@@ -303,8 +303,7 @@ class COCODataset(JointsDataset):
                 'joints_3d_vis': joints_3d_vis,
             })
 
-        logger.info('=> Total boxes after fliter low score@{}: {}'.format(
-            self.image_thre, num_boxes))
+        logger.info('=> Total boxes after fliter low score@{}: {}'.format(self.image_thre, num_boxes))
         return kpt_db
 
     def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, *args, **kwargs):
