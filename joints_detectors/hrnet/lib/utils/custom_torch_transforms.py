@@ -7,5 +7,5 @@ class NormalizeEachImg:
 
     def __call__(self, img):
         _mean, _std = torch.mean(img), torch.std(img)
-        img = (img - _mean) / _std
+        img = (img - _mean) / (_std + 1e-8)
         return img

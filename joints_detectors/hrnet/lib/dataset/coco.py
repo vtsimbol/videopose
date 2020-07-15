@@ -238,17 +238,15 @@ class COCODataset(JointsDataset):
         return self._xywh2cs(x, y, w, h)
 
     def _xywh2cs(self, x, y, w, h):
-        center = np.zeros((2), dtype=np.float32)
-        center[0] = x + w * 0.5
-        center[1] = y + h * 0.5
+        center = np.array([x + w * 0.5, y + h * 0.5], dtype=np.float32)
 
         if w > self.aspect_ratio * h:
             h = w * 1.0 / self.aspect_ratio
         elif w < self.aspect_ratio * h:
             w = h * self.aspect_ratio
-        scale = np.array(
-            [w * 1.0 / self.pixel_std, h * 1.0 / self.pixel_std],
-            dtype=np.float32)
+
+        scale = np.array([w * 1.0 / self.pixel_std, h * 1.0 / self.pixel_std], dtype=np.float32)
+
         if center[0] != -1:
             scale = scale * 1.25
 

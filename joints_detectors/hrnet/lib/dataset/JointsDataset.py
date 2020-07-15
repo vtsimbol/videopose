@@ -76,8 +76,7 @@ class JointsDataset(Dataset):
         if np.random.randn() < 0.5 and len(upper_joints) > 2:
             selected_joints = upper_joints
         else:
-            selected_joints = lower_joints \
-                if len(lower_joints) > 2 else upper_joints
+            selected_joints = lower_joints if len(lower_joints) > 2 else upper_joints
 
         if len(selected_joints) < 2:
             return None, None
@@ -144,11 +143,12 @@ class JointsDataset(Dataset):
         r = 0
 
         if self.is_train:
-            # if np.sum(joints_vis[:, 0]) > self.num_joints_half_body and np.random.rand() < self.prob_half_body:
-            #     c_half_body, s_half_body = self.half_body_transform(joints, joints_vis)
-            #
-            #     if c_half_body is not None and s_half_body is not None:
-            #         c, s = c_half_body, s_half_body
+            if np.sum(joints_vis[:, 0]) > self.num_joints_half_body and \
+                    np.random.rand() < self.prob_half_body and self.num_joints > 2:
+                c_half_body, s_half_body = self.half_body_transform(joints, joints_vis)
+
+                if c_half_body is not None and s_half_body is not None:
+                    c, s = c_half_body, s_half_body
 
             sf = self.scale_factor
             rf = self.rotation_factor
@@ -202,8 +202,7 @@ class JointsDataset(Dataset):
             num_vis = 0
             joints_x = 0.0
             joints_y = 0.0
-            for joint, joint_vis in zip(
-                    rec['joints_3d'], rec['joints_3d_vis']):
+            for joint, joint_vis in zip(rec['joints_3d'], rec['joints_3d_vis']):
                 if joint_vis[0] <= 0:
                     continue
                 num_vis += 1

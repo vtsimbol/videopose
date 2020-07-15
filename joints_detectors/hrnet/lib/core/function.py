@@ -15,17 +15,16 @@ import os
 import numpy as np
 import torch
 
-from core.evaluate import accuracy
-from core.inference import get_final_preds
-from utils.transforms import flip_back
-from utils.vis import save_debug_images
+from joints_detectors.hrnet.lib.core.evaluate import accuracy
+from joints_detectors.hrnet.lib.core.inference import get_final_preds
+from joints_detectors.hrnet.lib.utils.transforms import flip_back
+from joints_detectors.hrnet.lib.utils.vis import save_debug_images
 
 
 logger = logging.getLogger(__name__)
 
 
-def train(config, train_loader, model, criterion, optimizer, epoch,
-          output_dir, tb_log_dir, writer_dict):
+def train(config, train_loader, model, criterion, optimizer, epoch, output_dir, tb_log_dir, writer_dict):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
