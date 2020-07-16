@@ -116,8 +116,15 @@ def crop(img, center, scale, output_size, rot=0):
     return dst_img
 
 
+def yes_or_no(p=0.5):
+    return np.random.uniform() < p
+
+
 def blur(img):
-    if np.random.randint(0, 2):
+    if not yes_or_no():
+        return img
+
+    if yes_or_no():
         blur_type = np.random.randint(0, 3)
         if blur_type == 0:
             kernel = int(np.random.uniform(1, 10))
@@ -143,3 +150,106 @@ def blur(img):
         img_t = cv2.filter2D(img.copy(), -1, kernel)
 
     return img_t
+
+
+def flip(img, joints, joints_vis, center, scale, flip_pairs):
+    if not yes_or_no():
+        return img, joints, joints_vis, center, scale
+
+    h, w = img.shape[:2]
+    if yes_or_no():
+        rotate_mode = np.random.randint(0, 3)
+        if rotate_mode == 0:
+            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+            joints = np.asarray([(h - j[1], j[0], j[2]) for j in joints])
+            center[0], center[1] = h - center[1], center[0]
+            scale[0], scale[1] = scale[1], scale[0]
+        elif rotate_mode == 1:
+            img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            joints = np.asarray([(j[1], w - j[0], j[2]) for j in joints])
+            center[0], center[1] = center[1], w - center[0]
+            scale[0], scale[1] = scale[1], scale[0]
+        elif rotate_mode == 2:
+            img = cv2.rotate(img, cv2.ROTATE_180)
+            joints = np.asarray([(w - j[0], h - j[1], j[2]) for j in joints])
+            center[0], center[1] = w - center[0], h - center[1]
+    else:
+        flip_mode = np.random.randint(0, 2)
+        if flip_mode == 0:
+            img = cv2.flip(img, flip_mode)
+            joints = np.asarray([(j[0], h - j[1], j[2]) for j in joints])
+            center[0], center[1] = center[0], h - center[1]
+        elif flip_mode == 1:
+            img = cv2.flip(img, flip_mode)
+            joints = np.asarray([(w - j[0], j[1], j[2]) for j in joints])
+            center[0], center[1] = w - center[0], center[1]
+
+        for pair in flip_pairs:
+            joints[pair[0], :], joints[pair[1], :] = joints[pair[1], :], joints[pair[0], :].copy()
+            joints_vis[pair[0], :], joints_vis[pair[1], :] = joints_vis[pair[1], :], joints_vis[pair[0], :].copy()
+
+    return img, joints, joints_vis, center, scale
+
+
+def crop_frame(img, joints, joints_vis, center, scale, pixel_std=200):
+    if not yes_or_no():
+        return img, joints, joints_vis, center, scale
+
+    h, w = img.shape[:2]
+    roi = np.asarray([0, 0, w, h], dtype=np.float32)
+
+    scale_t = scale * pixel_std
+    bbox = np.asarray([np.max([0, center[0] - scale_t[0] * 0.5]),
+                       np.max([0, center[1] - scale_t[1] * 0.5]),
+                       np.min([center[0] + scale_t[0] * 0.5, w]),
+                       np.min([center[1] + scale_t[1] * 0.5, h])], dtype=np.float32)
+
+    crop_side = np.random.randint(0, 4)
+    if crop_side == 0:
+        roi[0] = np.ceil(np.random.uniform() * bbox[0])
+    elif crop_side == 1:
+        roi[1] = np.ceil(np.random.uniform() * bbox[1])
+    elif crop_side == 2:
+        roi[2] -= np.floor(np.random.uniform() * (w - bbox[2]))
+    else:
+        roi[3] -= np.floor(np.random.uniform() * (h - bbox[3]))
+
+    roi = np.asarray(roi, dtype=int)
+    img_t = img[roi[1]:roi[3], roi[0]:roi[2]]
+    if img_t.shape[0] == 0 or img_t.shape[1] == 0:
+        return img, joints, joints_vis, center, scale
+
+    bbox_t = np.asarray([np.max([bbox[0], roi[0]]),
+                         np.max([bbox[1], roi[1]]),
+                         np.min([bbox[2], roi[2]]),
+                         np.min([bbox[3], roi[3]])], dtype=np.float32)
+
+    joints[:, 0] -= roi[0]
+    joints[:, 1] -= roi[1]
+    center_t = np.asarray([(bbox_t[0] + bbox_t[2]) / 2, (bbox_t[1] + bbox_t[3]) / 2], dtype=center.dtype)
+    scale_t = np.asarray([bbox_t[2] - bbox_t[0], bbox_t[3] - bbox_t[1]], dtype=scale.dtype) / pixel_std
+
+    return img_t, joints, joints_vis, center_t, scale_t
+
+
+if __name__ == '__main__':
+    img_path = '/home/igor/datasets/byndyu_ankle_mobility_heel_coco_format/images/val/000000000005.jpg'
+    center = np.asarray([417.0, 421.0])
+    scale = np.asarray([593.0 / 200, 823.0 / 200])
+    joints = np.asarray([[334, 784, 1], [537, 781, 1]])
+    joints_vis = np.asarray([[1, 1, 0], [1, 1, 0]])
+
+    img = cv2.imread(img_path)
+    while True:
+        viz, joints_t, joints_viz_t, center_t, scale_t = crop_frame(img.copy(), joints.copy(), joints_vis.copy(),
+                                                                    center.copy(), scale.copy())
+        bbox = np.asarray([center_t[0] - scale_t[0] * 100,
+                           center_t[1] - scale_t[1] * 100,
+                           center_t[0] + scale_t[0] * 100,
+                           center_t[1] + scale_t[1] * 100], dtype=int)
+
+        viz = cv2.rectangle(viz, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 2)
+        viz = cv2.circle(viz, (int(joints_t[0][0]), int(joints_t[0][1])), 2, (0, 255, 0), 2)
+        viz = cv2.circle(viz, (int(joints_t[1][0]), int(joints_t[1][1])), 2, (0, 0, 255), 2)
+        cv2.imshow('debug', viz)
+        cv2.waitKey(0)

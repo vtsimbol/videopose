@@ -14,24 +14,33 @@ DATASET:
   COLOR_RGB: false
   DATASET:
   - 'coco'
+  - 'coco'
+  - 'coco'
   DATA_FORMAT: jpg
   FLIP: true
   BLUR: true
+  CROP: true
   NUM_JOINTS_HALF_BODY: 1
   PROB_HALF_BODY: 0.3
   ROOT:
   - 'byndyu_ankle_mobility_heel_coco_format'
-  ROT_FACTOR: 45
+  - 'byndyu_foot_coco_format_2points'
+  - 'coco'
+  ROT_FACTOR: 15
   SCALE_FACTOR: 0.35
   TEST_SET:
   - 'val'
+  - ''
+  - ''
   TRAIN_SET:
   - 'train'
+  - 'train'
+  - 'train2017'
 MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet
   NUM_JOINTS: 2
-  PRETRAINED: ''
+  PRETRAINED: '/mnt/data/logs/videopose/output/15072020_202320_pose_hrnet_w32_224x224_adam_lr1e-3_byndyusoft_ankle_mobility/checkpoint_ep_134__AP_0.4946.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 224

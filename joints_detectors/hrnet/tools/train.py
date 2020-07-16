@@ -194,7 +194,8 @@ def main():
     optimizer = get_optimizer(cfg, model)
     if cfg.MODEL.PRETRAINED != '':
         optimizer.load_state_dict(ckpt['optimizer'])
-    begin_epoch = cfg.TRAIN.BEGIN_EPOCH if cfg.MODEL.PRETRAINED == '' else ckpt['epoch']
+    # begin_epoch = cfg.TRAIN.BEGIN_EPOCH if cfg.MODEL.PRETRAINED == '' else ckpt['epoch']
+    begin_epoch = 0
     checkpoint_file = os.path.join(final_output_dir, 'checkpoint.pth')
 
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):

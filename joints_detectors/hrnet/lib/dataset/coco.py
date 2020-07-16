@@ -464,8 +464,8 @@ if __name__ == '__main__':
     import json
     import cv2
 
-    img_dir = 'path to image dir'
-    anno_path = 'path to .json annotation file'
+    img_dir = '/home/igor/datasets/coco/images/train2017'
+    anno_path = '/home/igor/datasets/coco/annotations/person_keypoints_train2017_foot_v1_fix_2points.json'
     with open(anno_path, 'r') as file:
         anno = json.load(file)
     for data in anno["annotations"]:
